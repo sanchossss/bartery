@@ -293,6 +293,18 @@ if ($resource === 'skills') {
     exit;
 }
 
+// Public catalog: users who teach a skill (for React / mobile)
+if ($resource === 'teach-offers') {
+    require __DIR__ . '/../src/api/teach-offers.php';
+    exit;
+}
+
+// Public leaderboard by points
+if ($resource === 'leaderboard') {
+    require __DIR__ . '/../src/api/leaderboard.php';
+    exit;
+}
+
 // Users
 if ($resource === 'users') {
     require __DIR__ . '/../src/api/users.php';
