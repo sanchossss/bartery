@@ -52,6 +52,25 @@ services:
       DB_USER: ${skills_user}
       DB_PASS: ${skills_pass}
 
+  frontend:
+    build:
+      context: ./web/react
+      dockerfile: Dockerfile
+    container_name: bartery_frontend
+    working_dir: /app
+    volumes:
+      - ./web/react:/app
+      - /app/node_modules
+      - /app/.next
+    ports:
+      - "3000:3000"
+    depends_on:
+      - web
+    environment:
+      NODE_ENV: development
+      CHOKIDAR_USEPOLLING: "true"
+
+
   mysql:
     image: mysql:8.0
     container_name: skills-exchange-mysql

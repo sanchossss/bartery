@@ -53,7 +53,7 @@ export function Header() {
           <div className="flex size-9 items-center justify-center rounded-lg bg-primary">
             <ArrowLeftRight className="size-5 text-primary-foreground" />
           </div>
-          <span className="text-lg font-bold tracking-tight text-foreground">SkillSwap</span>
+          <span className="text-lg font-bold tracking-tight text-foreground">Bartery</span>
         </Link>
 
         <nav
