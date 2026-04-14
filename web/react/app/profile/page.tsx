@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
-import { BookOpen, Edit3, LogOut, RefreshCw, Save, Star, Trophy, X } from "lucide-react"
+import { BookOpen, Calendar, Edit3, LogOut, RefreshCw, Save, Star, Trophy, X } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Card, CardContent } from "@/components/ui/card"
@@ -13,15 +13,7 @@ import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Separator } from "@/components/ui/separator"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import {
-  LevelBadge,
-  XpProgressBar,
-  StreakDisplay,
-  AchievementCard,
-  GamificationStats,
-  LeaderboardCard,
-  type LeaderboardRow,
-} from "@/components/gamification"
+import { AchievementCard } from "@/components/gamification"
 import { apiFetch, clearStoredAuth, getStoredAuth, setStoredAuth } from "@/lib/api-client"
 import type { Achievement, User, UserStats } from "@/lib/types"
 import { offerSlug } from "@/lib/types"
@@ -47,7 +39,16 @@ type MeUser = {
   teach_count?: number
   learn_count?: number
   completed_calls_count?: number
+  created_at?: string | null
   skills: MeSkill[]
+}
+
+type UserBadgeRow = {
+  id: number
+  name: string
+  image_url: string | null
+  level: number
+  awarded_at: string
 }
 
 function meToViewUser(me: MeUser, avgRating: number, reviewTotal: number): User {
@@ -83,11 +84,11 @@ export default function ProfilePage() {
   const router = useRouter()
   const [me, setMe] = useState<MeUser | null>(null)
   const [viewUser, setViewUser] = useState<User | null>(null)
-  const [leaderboard, setLeaderboard] = useState<LeaderboardRow[]>([])
   const [reviews, setReviews] = useState<
     { id: number; reviewer_name: string; rating: number; comment: string | null; created_at: string }[]
   >([])
   const [badges, setBadges] = useState<Achievement[]>([])
+  const [profileBadges, setProfileBadges] = useState<UserBadgeRow[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
@@ -104,23 +105,19 @@ export default function ProfilePage() {
     setLoading(true)
     setError(null)
     try {
-      const [meRes, lbRes] = await Promise.all([
-        apiFetch<{ user: MeUser }>("/api/users/me", { token: auth.token }),
-        apiFetch<{ users: LeaderboardRow[] }>("/api/leaderboard?limit=20"),
-      ])
+      const meRes = await apiFetch<{ user: MeUser }>("/api/users/me", { token: auth.token })
       const u = meRes.user
       setMe(u)
       setEditData({
         name: u.full_name?.trim() || "",
         bio: u.bio?.trim() || "",
       })
-      setLeaderboard(lbRes.users || [])
 
       const [revRes, badgeRes] = await Promise.all([
         apiFetch<{ reviews: typeof reviews; average_rating: number; total: number }>(
           `/api/reviews/${u.id}`
         ),
-        apiFetch<{ badges: { id: number; name: string; image_url: string | null; level: number; awarded_at: string }[] }>(
+        apiFetch<{ badges: UserBadgeRow[] }>(
           `/api/badges/user/${u.id}`
         ),
       ])
@@ -136,6 +133,7 @@ export default function ProfilePage() {
         unlockedAt: b.awarded_at,
       }))
       setBadges(ach)
+      setProfileBadges(badgeRes.badges || [])
 
       const vu = meToViewUser(u, avg, revRes.total || 0)
       vu.achievements = ach
@@ -206,6 +204,17 @@ export default function ProfilePage() {
 
   const currentUser = viewUser
   const teachSkills = (me.skills || []).filter((s) => s.type === "teach")
+  const monthsOnPlatform = (() => {
+    if (!me.created_at) return "—"
+    const created = new Date(String(me.created_at).replace(" ", "T") + "Z")
+    if (Number.isNaN(created.getTime())) return "—"
+    const now = new Date()
+    const months = Math.max(
+      0,
+      (now.getFullYear() - created.getFullYear()) * 12 + (now.getMonth() - created.getMonth())
+    )
+    return `${Math.max(1, months)} мес.`
+  })()
 
   return (
     <div className="mx-auto max-w-4xl px-4 py-8 md:py-12">
@@ -219,9 +228,6 @@ export default function ProfilePage() {
                     {currentUser.avatar}
                   </AvatarFallback>
                 </Avatar>
-                <div className="absolute -bottom-1 -right-1 flex size-7 items-center justify-center rounded-full border-2 border-card bg-primary text-xs font-bold text-primary-foreground">
-                  {currentUser.stats.level}
-                </div>
               </div>
               <div className="flex-1">
                 {isEditing ? (
@@ -242,7 +248,6 @@ export default function ProfilePage() {
                   <>
                     <div className="flex flex-wrap items-center gap-2">
                       <h1 className="text-2xl font-bold text-foreground">{currentUser.name}</h1>
-                      <LevelBadge level={currentUser.stats.level} size="sm" />
                     </div>
                     <div className="mt-2 flex flex-wrap items-center gap-3">
                       <div className="flex items-center gap-1">
@@ -250,7 +255,6 @@ export default function ProfilePage() {
                         <span className="font-semibold text-foreground">{currentUser.rating || "—"}</span>
                       </div>
                       <span className="text-sm text-muted-foreground">{reviews.length} отзывов</span>
-                      <span className="text-sm text-muted-foreground">{me.points} очков</span>
                     </div>
                   </>
                 )}
@@ -281,10 +285,6 @@ export default function ProfilePage() {
                 </>
               )}
             </div>
-          </div>
-
-          <div className="mt-6">
-            <XpProgressBar stats={currentUser.stats} />
           </div>
 
           <Separator className="my-5" />
@@ -324,18 +324,78 @@ export default function ProfilePage() {
           </div>
 
           <div className="mt-5">
-            <StreakDisplay streak={currentUser.stats.streak} />
+            <p className="text-sm font-medium text-foreground">Достижения:</p>
+            {profileBadges.length === 0 ? (
+              <p className="mt-2 text-sm text-muted-foreground">Пока нет бейджей</p>
+            ) : (
+              <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+                {profileBadges.map((b, i) => (
+                  <div
+                    key={b.id}
+                    className={`rounded-xl p-3 text-center ${
+                      i % 4 === 0
+                        ? "bg-slate-100"
+                        : i % 4 === 1
+                          ? "bg-emerald-100"
+                          : i % 4 === 2
+                            ? "bg-indigo-100"
+                            : "bg-amber-100"
+                    }`}
+                  >
+                    {b.image_url ? (
+                      <img
+                        src={b.image_url}
+                        alt={b.name}
+                        className="mx-auto mb-1 h-5 w-5 object-contain"
+                      />
+                    ) : (
+                      <Trophy className="mx-auto mb-1 size-5 text-emerald-600" />
+                    )}
+                    <p className="text-xs font-semibold text-foreground">{b.name}</p>
+                    <p className="text-[11px] text-muted-foreground">Уровень {b.level}</p>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         </CardContent>
       </Card>
 
       <div className="mt-6">
-        <GamificationStats stats={currentUser.stats} />
+        <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+          <Card>
+            <CardContent className="p-4 text-center">
+              <RefreshCw className="mx-auto size-5 text-primary" />
+              <p className="mt-2 text-2xl font-bold text-foreground">{me.completed_calls_count ?? 0}</p>
+              <p className="text-xs text-muted-foreground">Обменов</p>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="p-4 text-center">
+              <BookOpen className="mx-auto size-5 text-primary" />
+              <p className="mt-2 text-2xl font-bold text-foreground">{currentUser.skills.length}</p>
+              <p className="text-xs text-muted-foreground">Навыков</p>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="p-4 text-center">
+              <Star className="mx-auto size-5 text-primary" />
+              <p className="mt-2 text-2xl font-bold text-foreground">{currentUser.rating || "—"}</p>
+              <p className="text-xs text-muted-foreground">Рейтинг</p>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="p-4 text-center">
+              <Calendar className="mx-auto size-5 text-primary" />
+              <p className="mt-2 text-2xl font-bold text-foreground">{monthsOnPlatform}</p>
+              <p className="text-xs text-muted-foreground">На платформе</p>
+            </CardContent>
+          </Card>
+        </div>
       </div>
 
-      <div className="mt-6 grid gap-6 lg:grid-cols-3">
-        <div className="lg:col-span-2">
-          <Tabs defaultValue="skills">
+      <div className="mt-6">
+        <Tabs defaultValue="skills">
             <TabsList className="w-full md:w-auto">
               <TabsTrigger value="skills" className="gap-1.5">
                 <BookOpen className="size-3.5" />
@@ -437,12 +497,7 @@ export default function ProfilePage() {
                 </div>
               </TabsContent>
             </div>
-          </Tabs>
-        </div>
-
-        <div className="lg:col-span-1">
-          <LeaderboardCard rows={leaderboard} currentUserId={me.id} />
-        </div>
+        </Tabs>
       </div>
     </div>
   )

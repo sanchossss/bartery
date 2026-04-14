@@ -32,6 +32,13 @@ type MsgRow = {
   created_at: string
 }
 
+type PublicUserRow = {
+  id: number
+  username: string
+  full_name: string | null
+  avatar_url: string | null
+}
+
 function formatMsgTime(iso: string | null): string {
   if (!iso) return ""
   const d = new Date(iso.replace(" ", "T") + "Z")
@@ -67,6 +74,37 @@ function convToChat(row: ConvRow, messages: Message[]): Chat {
     lastMessageTime: formatMsgTime(row.last_at),
     unread: row.unread,
     messages,
+  }
+}
+
+function publicUserToChat(user: PublicUserRow): Chat {
+  return {
+    id: String(user.id),
+    participant: {
+      id: String(user.id),
+      name: user.full_name?.trim() || user.username,
+      avatar: initialsFromName(user.full_name, user.username),
+      avatarUrl: user.avatar_url,
+      bio: "",
+      location: "",
+      skills: [],
+      rating: 0,
+      stats: {
+        level: 1,
+        xp: 0,
+        xpToNextLevel: 1,
+        streak: 0,
+        totalExchanges: 0,
+        totalHours: 0,
+        skillsTaught: 0,
+        skillsLearned: 0,
+      },
+      achievements: [],
+    },
+    lastMessage: "",
+    lastMessageTime: "",
+    unread: 0,
+    messages: [],
   }
 }
 
@@ -201,7 +239,20 @@ export default function ChatView() {
           token: auth.token,
         })
         if (cancelled) return
-        const list = (data.conversations || []).map((c) => convToChat(c, []))
+        let list = (data.conversations || []).map((c) => convToChat(c, []))
+
+        // Open direct chat from skill page even if no messages yet.
+        if (withParam && !list.some((x) => x.id === String(withParam))) {
+          try {
+            const userData = await apiFetch<{ user: PublicUserRow }>(`/api/users/${withParam}`)
+            if (!cancelled && userData?.user) {
+              list = [publicUserToChat(userData.user), ...list]
+            }
+          } catch {
+            // ignore and keep existing list
+          }
+        }
+
         setChats(list)
 
         const prefer = withParam ? String(withParam) : list[0]?.id
@@ -253,11 +304,13 @@ export default function ChatView() {
         [activeChat.id]: [...(prev[activeChat.id] || []), mapped],
       }))
       setChats((prev) =>
-        prev.map((c) =>
-          c.id === activeChat.id
-            ? { ...c, lastMessage: text, lastMessageTime: mapped.timestamp }
-            : c
-        )
+        prev
+          .map((c) =>
+            c.id === activeChat.id
+              ? { ...c, lastMessage: text, lastMessageTime: mapped.timestamp }
+              : c
+          )
+          .sort((a, b) => (a.id === activeChat.id ? -1 : b.id === activeChat.id ? 1 : 0))
       )
     } catch {
       setInputValue(text)

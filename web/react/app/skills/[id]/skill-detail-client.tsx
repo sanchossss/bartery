@@ -211,24 +211,51 @@ export default function SkillDetailClient({
 
       <Separator className="my-6" />
 
-      <div>
-        <h2 className="text-lg font-semibold text-foreground">Описание</h2>
-        <p className="mt-3 leading-relaxed text-muted-foreground">{skill.longDescription}</p>
-      </div>
+      <div className="mt-8 grid gap-8 lg:grid-cols-3 lg:items-start">
+        <div className="lg:col-span-2">
+          <div>
+            <h2 className="text-lg font-semibold text-foreground">Описание</h2>
+            <p className="mt-3 leading-relaxed text-muted-foreground">{skill.longDescription}</p>
+          </div>
 
-      <div className="mt-8">
-        <h2 className="text-lg font-semibold text-foreground">Теги</h2>
-        <div className="mt-3 flex flex-wrap gap-2">
-          {skill.tags.map((tag) => (
-            <Badge key={tag} variant="secondary">
-              {tag}
-            </Badge>
-          ))}
+          <div className="mt-8">
+            <h2 className="text-lg font-semibold text-foreground">Теги</h2>
+            <div className="mt-3 flex flex-wrap gap-2">
+              {skill.tags.map((tag) => (
+                <Badge key={tag} variant="secondary">
+                  {tag}
+                </Badge>
+              ))}
+            </div>
+          </div>
+
+          {similarSkills.length > 0 && (
+            <div className="mt-10">
+              <h2 className="text-lg font-semibold text-foreground">Похожие навыки</h2>
+              <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                {similarSkills.map((s) => (
+                  <Link key={s.id} href={`/skills/${s.id}`}>
+                    <Card className="transition-colors hover:border-primary/30">
+                      <CardContent className="p-4">
+                        <Badge variant="secondary" className="text-xs">
+                          {s.category}
+                        </Badge>
+                        <h3 className="mt-2 font-medium text-foreground">{s.title}</h3>
+                        <div className="mt-2 flex items-center gap-1">
+                          <Star className="size-3 fill-primary text-primary" />
+                          <span className="text-sm text-foreground">{s.rating || "—"}</span>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  </Link>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
-      </div>
 
-      <Card className="mt-10 max-w-2xl rounded-2xl border border-border/80 shadow-sm">
-        <CardContent className="space-y-0 p-6 md:p-8">
+        <Card className="rounded-2xl border border-border/80 shadow-sm lg:sticky lg:top-24">
+          <CardContent className="space-y-0 p-6 md:p-8 lg:p-6">
           <div className="flex gap-4">
             <Avatar className="size-14 shrink-0 ring-2 ring-background">
               <AvatarFallback className="rounded-full bg-primary/15 text-base font-semibold text-primary">
@@ -306,31 +333,8 @@ export default function SkillDetailClient({
             </>
           )}
         </CardContent>
-      </Card>
-
-      {similarSkills.length > 0 && (
-        <div className="mt-10">
-          <h2 className="text-lg font-semibold text-foreground">Похожие навыки</h2>
-          <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {similarSkills.map((s) => (
-              <Link key={s.id} href={`/skills/${s.id}`}>
-                <Card className="transition-colors hover:border-primary/30">
-                  <CardContent className="p-4">
-                    <Badge variant="secondary" className="text-xs">
-                      {s.category}
-                    </Badge>
-                    <h3 className="mt-2 font-medium text-foreground">{s.title}</h3>
-                    <div className="mt-2 flex items-center gap-1">
-                      <Star className="size-3 fill-primary text-primary" />
-                      <span className="text-sm text-foreground">{s.rating || "—"}</span>
-                    </div>
-                  </CardContent>
-                </Card>
-              </Link>
-            ))}
-          </div>
-        </div>
-      )}
+        </Card>
+      </div>
     </div>
   )
 }

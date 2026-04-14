@@ -39,6 +39,12 @@ export function clearStoredAuth() {
 
 /** Backend origin for absolute URLs (avatars, server-side fetch). */
 export function getBackendOrigin(): string {
+  // Server runtime can use an internal Docker network URL.
+  if (typeof window === "undefined") {
+    if (typeof process.env.API_BACKEND_URL === "string" && process.env.API_BACKEND_URL) {
+      return process.env.API_BACKEND_URL.replace(/\/$/, "")
+    }
+  }
   if (typeof process.env.NEXT_PUBLIC_API_ORIGIN === "string" && process.env.NEXT_PUBLIC_API_ORIGIN) {
     return process.env.NEXT_PUBLIC_API_ORIGIN.replace(/\/$/, "")
   }

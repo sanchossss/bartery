@@ -9,6 +9,7 @@ services:
     depends_on:
       - app
       - web
+      - frontend
 
   app:
     build: .
@@ -65,10 +66,12 @@ services:
     ports:
       - "3000:3000"
     depends_on:
-      - web
+      - app
     environment:
       NODE_ENV: development
       CHOKIDAR_USEPOLLING: "true"
+      API_BACKEND_URL: http://app:80
+      NEXT_PUBLIC_API_ORIGIN: http://localhost:8080
 
 
   mysql:
