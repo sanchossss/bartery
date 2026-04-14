@@ -4,9 +4,7 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import {
   CategoriesSectionDynamic,
-  LeaderboardSectionDynamic,
   PopularSkillsSection,
-  StatsSectionDynamic,
 } from "@/components/home-api-sections"
 
 function HeroSection() {
@@ -102,8 +100,6 @@ export default function HomePage() {
       <HowItWorks />
       <PopularSkillsSection />
       <CategoriesSectionDynamic />
-      <LeaderboardSectionDynamic />
-      <StatsSectionDynamic />
     </>
   )
 }
