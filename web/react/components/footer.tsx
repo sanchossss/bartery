@@ -10,7 +10,7 @@ export function Footer() {
             <ArrowLeftRight className="size-4 text-primary-foreground" />
           </div>
           <span className="text-sm font-semibold text-foreground">
-            SkillSwap
+            Bartery
           </span>
         </div>
         <nav className="flex gap-6">
@@ -34,7 +34,7 @@ export function Footer() {
           </Link>
         </nav>
         <p className="text-xs text-muted-foreground">
-          SkillSwap 2026. Обмен знаниями.
+          Bartery 2026. Обмен знаниями.
         </p>
       </div>
     </footer>

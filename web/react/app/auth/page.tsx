@@ -267,7 +267,7 @@ export default function AuthPage() {
               <ArrowLeftRight className="size-5 text-primary-foreground" />
             </div>
             <span className="text-xl font-bold tracking-tight text-foreground">
-              SkillSwap
+              Bartery
             </span>
           </Link>
           <p className="mt-3 text-muted-foreground">
@@ -294,16 +294,6 @@ export default function AuthPage() {
           </CardContent>
         </Card>
 
-        <p className="mt-6 text-center text-xs text-muted-foreground">
-          {"Регистрируясь, вы соглашаетесь с "}
-          <Link href="/" className="text-primary hover:underline">
-            {"условиями использования"}
-          </Link>
-          {" и "}
-          <Link href="/" className="text-primary hover:underline">
-            {"политикой конфиденциальности"}
-          </Link>
-        </p>
       </div>
     </div>
   )

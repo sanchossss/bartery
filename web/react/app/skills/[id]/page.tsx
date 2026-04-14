@@ -1,7 +1,7 @@
 import SkillDetailClient from "./skill-detail-client"
 
 export const metadata = {
-  title: "Навык — SkillSwap",
+  title: "Навык — Bartery",
   description: "Карточка предложения обмена навыками",
 }
 

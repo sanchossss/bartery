@@ -2,8 +2,8 @@ import { Suspense } from "react"
 import ChatView from "@/components/chat-view"
 
 export const metadata = {
-  title: "Чат — SkillSwap",
-  description: "Общайтесь с другими участниками платформы SkillSwap.",
+  title: "Чат — Bartery",
+  description: "Общайтесь с другими участниками платформы Bartery.",
 }
 
 export default function ChatPage() {

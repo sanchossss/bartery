@@ -10,7 +10,7 @@ const jetbrainsMono = JetBrains_Mono({
 })
 
 export const metadata: Metadata = {
-  title: "SkillSwap — Платформа обмена навыками",
+  title: "Bartery — Платформа обмена навыками",
   description:
     "Обменивайтесь знаниями и умениями с другими людьми. Учите Python в обмен на французский, дизайн на гитару и многое другое.",
   icons: {
