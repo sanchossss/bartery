@@ -1,254 +1,187 @@
-# Skills Exchange — Backend API
+# Bartery
 
-Платформа для обмена навыками. Бэкенд: PHP, MySQL, Docker.
+Платформа обмена навыками: PHP API + MySQL + React/Next.js frontend, запущенные в Docker.
 
-## Структура проекта
+## Что сейчас в проекте
 
-```
-server/
-├── docker-compose.yml    # Оркестрация: proxy, app, web, mysql
-├── Dockerfile            # Образ API (PHP + nginx)
-├── web/Dockerfile        # Образ веб-модуля (PHP + nginx)
-├── docker/
-│   ├── proxy.conf        # Роутинг: / → web, /api → app
-│   ├── nginx-app.conf    # API-контейнер
-│   ├── nginx-web.conf    # Web-контейнер
-│   └── supervisord*.conf
-├── public/index.php      # API (роутер)
-├── src/                  # Конфиг и обработчики API
-├── web/                  # Веб-модуль (отдельный контейнер)
-│   ├── *.html, css/, js/api.js
-│   └── admin/            # Админка БД (PHP, подключение к MySQL)
-└── README.md
-```
+- `frontend` — Next.js (`web/react`), основной пользовательский интерфейс.
+- `app` — PHP API (`public/index.php`, `src/api/*`).
+- `web` — legacy PHP модуль и админка (`/admin`).
+- `proxy` — Apache reverse proxy, единая точка входа на `http://localhost:8080`.
+- `mysql` — MySQL 8.0 с инициализацией из `db/init.sql`.
 
-## Запуск локально
+## Быстрый старт (рекомендуется)
 
 ### Требования
-- Docker и Docker Compose
 
-### Шаги
+- Docker Desktop (или Docker Engine + Compose plugin)
 
-1. **Клонируй/скопируй проект и перейди в папку**
-   ```bash
-   cd server
-   ```
+### Запуск
 
-2. **Создай `.env` (опционально)**
-   ```bash
-   cp .env.example .env
-   ```
-   Можно оставить значения по умолчанию.
-
-3. **Запусти контейнеры**
-   ```bash
-   docker compose up -d
-   ```
-
-4. **Проверь работу**
-   - Веб-версия: http://localhost:8080 (логин, регистрация, пользователи, сообщения, мой профиль)
-   - Админка (БД): http://localhost:8080/admin/
-   - API: http://localhost:8080/api/categories или `curl http://localhost:8080/api/categories`
-
-5. **Остановка**
-   ```bash
-   docker compose down
-   ```
-
-## Развёртывание на удалённом сервере
-
-### Вариант 1: Docker Compose
-
-1. **Скопируй проект на сервер**
-   ```bash
-   scp -r server/ user@your-server:/home/user/
-   ```
-
-2. **Подключись по SSH**
-   ```bash
-   ssh user@your-server
-   cd /home/user/server
-   ```
-
-3. **Создай `.env` с надёжными данными**
-   ```bash
-   cp .env.example .env
-   nano .env
-   ```
-   Задай:
-   - `DB_PASS` — сложный пароль для БД
-   - `MYSQL_ROOT_PASSWORD` — пароль root MySQL
-
-4. **Запусти**
-   ```bash
-   docker compose up -d
-   ```
-
-5. **Настрой домен и HTTPS (nginx как reverse proxy)**
-   - Установи nginx на хост.
-   - Создай конфиг:
-
-   ```nginx
-   server {
-       listen 80;
-       server_name api.yourdomain.com;
-
-       location / {
-           proxy_pass http://127.0.0.1:8080;
-           proxy_set_header Host $host;
-           proxy_set_header X-Real-IP $remote_addr;
-           proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-           proxy_set_header X-Forwarded-Proto $scheme;
-       }
-   }
-   ```
-
-   - Установи certbot и получи SSL: `certbot --nginx -d api.yourdomain.com`
-
-### Вариант 2: Без Docker
-
-1. Установи PHP 8.2+, MySQL 8+, nginx или Apache.
-2. Создай БД и пользователя, выполни `db/init.sql`.
-3. Скопируй `public/` и `src/` на сервер.
-4. Настрой nginx/Apache, чтобы корень сайта указывал на `public/`.
-5. В переменных окружения или в `src/config.php` задай параметры подключения к БД.
-
----
-
-## API Endpoints
-
-### Авторизация
-| Метод | Путь | Описание |
-|-------|------|----------|
-| POST | /api/auth/register | Регистрация |
-| POST | /api/auth/login | Вход |
-| POST | /api/auth/logout | Выход |
-
-### Пользователи
-| Метод | Путь | Auth | Описание |
-|-------|------|------|----------|
-| GET | /api/users | ✓ | Список всех пользователей (для веб-версии) |
-| GET | /api/users/me | ✓ | Профиль текущего пользователя |
-| PUT | /api/users/me | ✓ | Обновить профиль |
-| POST | /api/users/me/avatar | ✓ | Загрузить аватарку |
-| DELETE | /api/users/me/avatar | ✓ | Удалить аватарку |
-| GET | /api/users/me/skills | ✓ | Мои навыки |
-| POST | /api/users/me/skills | ✓ | Добавить навык |
-| DELETE | /api/users/me/skills/{id} | ✓ | Удалить навык |
-| GET | /api/users/search?teach=X&learn=Y | - | Поиск партнёров по обмену |
-| GET | /api/users/{id} | - | Публичный профиль |
-| GET | /api/users/{id}/completed-calls-count | - | Количество завершённых видеозвонков |
-
-*Примечание:* эндпоинты профиля пользователя (`/api/users/me`, `/api/users/{id}`) также возвращают поле `completed_calls_count` — количество завершённых видеозвонков.
-
-### Категории и навыки
-| Метод | Путь | Auth | Описание |
-|-------|------|------|----------|
-| GET | /api/categories | - | Список категорий |
-| GET | /api/skills | - | Список навыков (?category_id=X) |
-| POST | /api/skills | ✓ | Создать навык |
-
-### Сообщения
-| Метод | Путь | Auth | Описание |
-|-------|------|------|----------|
-| GET | /api/messages | ✓ | Список диалогов |
-| GET | /api/messages/{userId} | ✓ | Сообщения с пользователем |
-| POST | /api/messages | ✓ | Отправить сообщение |
-
-### Отзывы
-| Метод | Путь | Auth | Описание |
-|-------|------|------|----------|
-| GET | /api/reviews/{userId} | - | Отзывы о пользователе |
-| POST | /api/reviews | ✓ | Оставить отзыв |
-
-### Видеозвонки
-| Метод | Путь | Auth | Описание |
-|-------|------|------|----------|
-| GET | /api/video-calls | ✓ | История звонков |
-| POST | /api/video-calls | ✓ | Создать звонок |
-| PATCH | /api/video-calls/{id} | ✓ | Обновить статус (active/completed/cancelled) |
-
-### Бейджи
-| Метод | Путь | Auth | Описание |
-|-------|------|------|----------|
-| GET | /api/badges | - | Список бейджей |
-| GET | /api/badges/user/{userId} | - | Бейджи пользователя |
-
-### Push-уведомления
-| Метод | Путь | Auth | Описание |
-|-------|------|------|----------|
-| GET | /api/push-tokens | ✓ | Мои push-токены |
-| POST | /api/push-tokens | ✓ | Зарегистрировать push-токен |
-| DELETE | /api/push-tokens/{id} | ✓ | Удалить push-токен |
-
----
-
-## Push-уведомления (FCM)
-
-Сервер автоматически отправляет push-уведомления через Firebase Cloud Messaging (FCM) при следующих событиях:
-
-- **Новое сообщение** — когда пользователь получает сообщение через `POST /api/messages`
-- **Входящий звонок** — когда пользователю начинают звонок через `POST /api/video-calls`
-- **Новый отзыв** — когда на пользователя оставляют отзыв через `POST /api/reviews`
-
-### Настройка FCM
-
-1. **Файл сервисного аккаунта:**
-   - Файл `src/bartery-1-firebase-adminsdk-fbsvc-20493bcfca.json` уже размещён в проекте
-   - Он используется автоматически для аутентификации в FCM HTTP v1 API
-
-2. **Для нового проекта:**
-   - Зайди в [Firebase Console](https://console.firebase.google.com/)
-   - Перейди в Project Settings → Service Accounts
-   - Нажми "Generate new private key" и скачай JSON
-   - Положи файл в `src/` и обнови путь в [`src/PushNotification.php`](src/PushNotification.php)
-
-3. **Переменные окружения (опционально):**
-   ```env
-   APP_URL=http://localhost:8080
-   ```
-
-### Регистрация токена на клиенте
-
-Клиентское приложение должно зарегистрировать свой FCM токен:
+Из корня репозитория:
 
 ```bash
-curl -X POST http://localhost:8080/api/push-tokens \
-  -H "Content-Type: application/json" \
-  -H "Authorization: Bearer <token>" \
-  -d '{"push_token":"fcm_token_here","platform":"android","device_name":"My Device"}'
+docker compose up -d --build
 ```
 
----
+### Открыть в браузере
 
-## Авторизация
+- Приложение (React): `http://localhost:8080`
+- Админка: `http://localhost:8080/admin`
+- Прямой frontend (dev): `http://localhost:3000`
+- API пример: `http://localhost:8080/api/categories`
 
-Требуемые эндпоинты принимают заголовок:
-```
-Authorization: Bearer <token>
-```
-Токен возвращается при `POST /api/auth/login` и `POST /api/auth/register`.
+### Остановка
 
----
-
-## Примеры запросов
-
-**Регистрация:**
 ```bash
-curl -X POST http://localhost:8080/api/auth/register \
-  -H "Content-Type: application/json" \
-  -d '{"username":"ivan","email":"ivan@mail.ru","password":"secret123","full_name":"Иван"}'
+docker compose down
 ```
 
-**Вход:**
-```bash
-curl -X POST http://localhost:8080/api/auth/login \
-  -H "Content-Type: application/json" \
-  -d '{"email":"ivan@mail.ru","password":"secret123"}'
+## Переменные окружения
+
+`docker-compose.yml` уже содержит рабочие значения по умолчанию через fallback в коде.
+При необходимости можно создать `.env` в корне проекта:
+
+```env
+# DB (app/web)
+DB_HOST=mysql
+DB_NAME=skills_exchange
+DB_USER=skills_user
+DB_PASS=skills_pass
+
+# MySQL container
+MYSQL_ROOT_PASSWORD=rootpass
+MYSQL_DATABASE=skills_exchange
+MYSQL_USER=skills_user
+MYSQL_PASSWORD=skills_pass
+
+# App URL
+APP_URL=http://localhost:8080
 ```
 
-**Поиск партнёров** (кто учит Python и хочет учить французский):
+Важно: в текущем `docker-compose.yml` используются плейсхолдеры вида `${skills_exchange}`, `${skills_user}`, `${skills_pass}`, `${rootpass}`.
+Если не хотите полагаться на defaults, задайте эти значения в `.env`.
+
+## Архитектура роутинга
+
+- `proxy` направляет:
+  - `/api/*` и `/uploads/*` -> `app`
+  - `/admin/*` -> `web`
+  - всё остальное -> `frontend`
+- Next.js также имеет rewrites `/api/*` и `/uploads/*` на backend (для прямого запуска frontend).
+
+## Docker-сервисы
+
+- `proxy` (`skills-exchange-proxy`) — порт `8080:80`
+- `app` (`skills-exchange-app`) — PHP API
+- `web` (`skills-exchange-web`) — legacy web/admin
+- `frontend` (`bartery_frontend`) — Next.js dev server `3000:3000`
+- `mysql` (`skills-exchange-mysql`) — `3306:3306`
+
+## Основные API эндпоинты
+
+### Auth
+
+- `POST /api/auth/register`
+- `POST /api/auth/login`
+- `POST /api/auth/logout`
+
+### Users
+
+- `GET /api/users`
+- `GET /api/users/me`
+- `PUT /api/users/me`
+- `POST /api/users/me/avatar`
+- `DELETE /api/users/me/avatar`
+- `GET /api/users/me/skills`
+- `POST /api/users/me/skills`
+- `DELETE /api/users/me/skills/{skillId}`
+- `GET /api/users/{id}`
+- `GET /api/users/search?teach={skillId}&learn={skillId}`
+
+### Catalog
+
+- `GET /api/categories`
+- `GET /api/skills`
+- `POST /api/skills`
+- `GET /api/teach-offers?limit=...`
+- `GET /api/leaderboard?limit=...`
+
+### Messages & Reviews
+
+- `GET /api/messages`
+- `GET /api/messages/{userId}`
+- `POST /api/messages`
+- `GET /api/reviews/{userId}`
+- `POST /api/reviews`
+
+### Calls
+
+- `POST /api/call/start`
+- `POST /api/call/join/{callId}`
+- `POST /api/call/cancel/{callId}`
+- `POST /api/call/end/{callId}`
+- `GET /api/calls/{callId}`
+- `GET /api/calls/user/{userId}`
+
+### Badges / Push Tokens
+
+- `GET /api/badges`
+- `GET /api/badges/user/{userId}`
+- `GET /api/push-tokens`
+- `POST /api/push-tokens`
+- `DELETE /api/push-tokens/{id}`
+
+## Видеозвонки
+
+- На фронте используются `@jitsi/react-sdk` и встроенная модалка в чате.
+- Текущий Jitsi server URL: `calls.disroot.org`.
+- Backend логирует события звонков в `logs/video_calls.log`.
+
+## Полезные команды
+
+### Проверить контейнеры
+
 ```bash
-curl "http://localhost:8080/api/users/search?teach=1&learn=4"
+docker compose ps
 ```
-*(teach=id навыка, которому ты учишь; learn=id навыка, которому хочешь научиться)*
+
+### Логи frontend
+
+```bash
+docker compose logs frontend --tail=200
+```
+
+### Полная пересборка
+
+```bash
+docker compose down
+docker compose up -d --build
+```
+
+## Частые проблемы
+
+### 1) `Module not found: Can't resolve '@jitsi/react-sdk'`
+
+Пересобери frontend-образ:
+
+```bash
+docker compose up -d --build frontend proxy
+```
+
+### 2) Ошибка Docker BuildKit `failed to prepare extraction snapshot`
+
+Это битый локальный cache Docker:
+
+```bash
+docker compose down
+docker builder prune -af
+docker buildx prune -af
+docker compose up -d --build
+```
+
+### 3) Не подхватываются изменения frontend
+
+- Убедись, что открываешь `http://localhost:8080`
+- Обнови страницу hard reload (`Cmd+Shift+R`)
+- Проверь `docker compose logs frontend`

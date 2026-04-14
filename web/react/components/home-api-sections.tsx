@@ -17,7 +17,7 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Card, CardContent } from "@/components/ui/card"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
-import { apiFetch } from "@/lib/api-client"
+import { apiFetch, getStoredAuth } from "@/lib/api-client"
 import { teachOfferToSkill } from "@/lib/mappers"
 import type { Skill } from "@/lib/types"
 import type { TeachOfferRow } from "@/lib/types"
@@ -35,6 +35,7 @@ type LeaderRow = {
 export function PopularSkillsSection() {
   const [skills, setSkills] = useState<Skill[]>([])
   const [loading, setLoading] = useState(true)
+  const currentUserId = getStoredAuth()?.user?.id ?? null
 
   useEffect(() => {
     let cancelled = false
@@ -42,7 +43,12 @@ export function PopularSkillsSection() {
       try {
         const data = await apiFetch<{ offers: TeachOfferRow[] }>("/api/teach-offers?limit=12")
         if (cancelled) return
-        setSkills((data.offers || []).slice(0, 4).map(teachOfferToSkill))
+        const all = (data.offers || []).map(teachOfferToSkill)
+        const visible =
+          currentUserId === null
+            ? all
+            : all.filter((s) => Number(s.userId) !== Number(currentUserId))
+        setSkills(visible.slice(0, 4))
       } catch {
         if (!cancelled) setSkills([])
       } finally {
@@ -52,7 +58,7 @@ export function PopularSkillsSection() {
     return () => {
       cancelled = true
     }
-  }, [])
+  }, [currentUserId])
 
   if (loading) {
     return (

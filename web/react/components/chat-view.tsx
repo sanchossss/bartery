@@ -3,12 +3,14 @@
 import { useState, useRef, useEffect, useCallback } from "react"
 import Link from "next/link"
 import { useSearchParams } from "next/navigation"
-import { Send } from "lucide-react"
+import { Camera, Send } from "lucide-react"
+import { JitsiMeeting } from "@jitsi/react-sdk"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Badge } from "@/components/ui/badge"
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { cn } from "@/lib/utils"
 import { apiFetch, getStoredAuth } from "@/lib/api-client"
 import { initialsFromName } from "@/lib/ui-helpers"
@@ -39,6 +41,22 @@ type PublicUserRow = {
   avatar_url: string | null
 }
 
+type VideoCallRow = {
+  id: number
+  caller_id: number
+  callee_id: number
+  room_name: string
+  status: "pending" | "active" | "cancelled" | "completed"
+}
+
+const CALL_SUMMARY_PREFIX = "__CALL_SUMMARY__:"
+
+type CallSummaryPayload = {
+  callId: number
+  status: "completed" | "cancelled"
+  durationSec: number
+}
+
 function formatMsgTime(iso: string | null): string {
   if (!iso) return ""
   const d = new Date(iso.replace(" ", "T") + "Z")
@@ -46,7 +64,27 @@ function formatMsgTime(iso: string | null): string {
   return d.toLocaleString("ru-RU", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" })
 }
 
+function parseCallSummary(text: string): CallSummaryPayload | null {
+  if (!text.startsWith(CALL_SUMMARY_PREFIX)) return null
+  try {
+    const parsed = JSON.parse(text.slice(CALL_SUMMARY_PREFIX.length)) as CallSummaryPayload
+    if (!parsed || typeof parsed.callId !== "number" || typeof parsed.durationSec !== "number") return null
+    if (parsed.status !== "completed" && parsed.status !== "cancelled") return null
+    return parsed
+  } catch {
+    return null
+  }
+}
+
+function formatDuration(seconds: number): string {
+  const safe = Math.max(0, Math.floor(seconds))
+  const mins = Math.floor(safe / 60)
+  const secs = safe % 60
+  return `${mins}:${String(secs).padStart(2, "0")}`
+}
+
 function convToChat(row: ConvRow, messages: Message[]): Chat {
+  const summary = row.last_message ? parseCallSummary(row.last_message) : null
   return {
     id: String(row.id),
     participant: {
@@ -70,7 +108,7 @@ function convToChat(row: ConvRow, messages: Message[]): Chat {
       },
       achievements: [],
     },
-    lastMessage: row.last_message || "",
+    lastMessage: summary ? "Сессия видеозвонка" : row.last_message || "",
     lastMessageTime: formatMsgTime(row.last_at),
     unread: row.unread,
     messages,
@@ -164,6 +202,30 @@ function MessageBubble({
   myId: number
 }) {
   const isMine = message.senderId === String(myId)
+  const callSummary = parseCallSummary(message.text)
+
+  if (callSummary) {
+    return (
+      <div className={cn("flex", isMine ? "justify-end" : "justify-start")}>
+        <div
+          className={cn(
+            "max-w-[85%] rounded-xl border px-4 py-3",
+            isMine
+              ? "border-primary/20 bg-primary/10 text-foreground"
+              : "border-border bg-muted/40 text-foreground"
+          )}
+        >
+          <p className="text-sm font-medium">
+            {callSummary.status === "completed" ? "Видеозвонок завершён" : "Видеозвонок отменён"}
+          </p>
+          <p className="mt-1 text-xs text-muted-foreground">
+            Длительность: {formatDuration(callSummary.durationSec)} · ID #{callSummary.callId}
+          </p>
+          <p className="mt-1 text-[10px] text-muted-foreground">{message.timestamp}</p>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className={cn("flex", isMine ? "justify-end" : "justify-start")}>
@@ -203,8 +265,15 @@ export default function ChatView() {
   const [showSidebar, setShowSidebar] = useState(true)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [callLoading, setCallLoading] = useState(false)
+  const [callError, setCallError] = useState<string | null>(null)
+  const [isCallOpen, setIsCallOpen] = useState(false)
+  const [activeCall, setActiveCall] = useState<VideoCallRow | null>(null)
+  const [callStartedAtMs, setCallStartedAtMs] = useState<number | null>(null)
 
   const messagesEndRef = useRef<HTMLDivElement>(null)
+  const jitsiApiRef = useRef<{ executeCommand?: (command: string) => void } | null>(null)
+  const isClosingCallRef = useRef(false)
 
   const loadMessages = useCallback(
     async (peerId: string) => {
@@ -317,6 +386,100 @@ export default function ChatView() {
     }
   }
 
+  async function closeCallSession() {
+    if (!activeCall || !auth?.token) return
+    try {
+      await apiFetch(`/api/call/end/${activeCall.id}`, {
+        method: "POST",
+        token: auth.token,
+      })
+    } catch {
+      try {
+        await apiFetch(`/api/call/cancel/${activeCall.id}`, {
+          method: "POST",
+          token: auth.token,
+        })
+      } catch {
+        // Ignore API teardown errors and still close local UI.
+      }
+    }
+  }
+
+  async function handleStartCall() {
+    if (!activeChat || !auth?.token || callLoading) return
+    setCallLoading(true)
+    setCallError(null)
+    try {
+      const res = await apiFetch<{ call: VideoCallRow }>("/api/call/start", {
+        method: "POST",
+        token: auth.token,
+        body: JSON.stringify({
+          callee_id: Number(activeChat.id),
+        }),
+      })
+      setActiveCall(res.call)
+      setCallStartedAtMs(Date.now())
+      setIsCallOpen(true)
+    } catch (e) {
+      setCallError(e instanceof Error ? e.message : "Не удалось начать видеозвонок")
+    } finally {
+      setCallLoading(false)
+    }
+  }
+
+  async function handleCallDialogChange(open: boolean) {
+    if (!open) {
+      if (isClosingCallRef.current) return
+      isClosingCallRef.current = true
+      jitsiApiRef.current?.executeCommand?.("hangup")
+      await closeCallSession()
+      if (activeCall && activeChat && auth?.token) {
+        const durationSec = callStartedAtMs ? Math.max(0, Math.floor((Date.now() - callStartedAtMs) / 1000)) : 0
+        const summaryPayload: CallSummaryPayload = {
+          callId: activeCall.id,
+          status: durationSec > 0 ? "completed" : "cancelled",
+          durationSec,
+        }
+        const summaryText = `${CALL_SUMMARY_PREFIX}${JSON.stringify(summaryPayload)}`
+        try {
+          const sent = await apiFetch<{ message: MsgRow }>("/api/messages", {
+            method: "POST",
+            token: auth.token,
+            body: JSON.stringify({
+              receiver_id: Number(activeChat.id),
+              content: summaryText,
+            }),
+          })
+          const mapped: Message = {
+            id: String(sent.message.id),
+            senderId: String(sent.message.sender_id),
+            text: sent.message.content,
+            timestamp: formatMsgTime(sent.message.created_at),
+          }
+          setMessagesByPeer((prev) => ({
+            ...prev,
+            [activeChat.id]: [...(prev[activeChat.id] || []), mapped],
+          }))
+          setChats((prev) =>
+            prev.map((c) =>
+              c.id === activeChat.id
+                ? { ...c, lastMessage: "Сессия видеозвонка", lastMessageTime: mapped.timestamp }
+                : c
+            )
+          )
+        } catch {
+          // Keep chat usable even if summary message send fails.
+        }
+      }
+      setIsCallOpen(false)
+      setActiveCall(null)
+      setCallStartedAtMs(null)
+      isClosingCallRef.current = false
+      return
+    }
+    setIsCallOpen(true)
+  }
+
   if (!auth?.token) {
     return (
       <div className="mx-auto max-w-md px-4 py-16 text-center">
@@ -413,7 +576,23 @@ export default function ChatView() {
             <div>
               <p className="text-sm font-medium text-foreground">{activeChat.participant.name}</p>
             </div>
+            <Button
+              type="button"
+              size="icon"
+              variant="outline"
+              className="ml-auto"
+              onClick={() => void handleStartCall()}
+              disabled={callLoading}
+            >
+              <Camera className="size-4" />
+              <span className="sr-only">Начать видеозвонок</span>
+            </Button>
           </div>
+          {callError && (
+            <div className="border-b border-border px-4 py-2 text-xs text-destructive">
+              {callError}
+            </div>
+          )}
 
           <ScrollArea className="flex-1">
             <div className="flex flex-col gap-3 p-4">
@@ -446,6 +625,53 @@ export default function ChatView() {
           </div>
         </div>
       </div>
+
+      <Dialog open={isCallOpen} onOpenChange={(open) => void handleCallDialogChange(open)}>
+        <DialogContent className="max-w-6xl p-0 sm:max-w-6xl" showCloseButton>
+          <DialogHeader className="border-b px-4 py-3">
+            <DialogTitle className="text-base">
+              Видеозвонок с {activeChat.participant.name}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="h-[75dvh]">
+            {activeCall ? (
+              <JitsiMeeting
+                domain="calls.disroot.org"
+                roomName={activeCall.room_name}
+                userInfo={{
+                  displayName: auth?.user?.full_name || auth?.user?.username || "Bartery User",
+                }}
+                configOverwrite={{
+                  prejoinPageEnabled: false,
+                  startWithAudioMuted: false,
+                  startWithVideoMuted: false,
+                }}
+                interfaceConfigOverwrite={{
+                  MOBILE_APP_PROMO: false,
+                }}
+                onApiReady={(externalApi) => {
+                  jitsiApiRef.current = externalApi
+                  externalApi.addEventListener("readyToClose", () => {
+                    void handleCallDialogChange(false)
+                  })
+                  externalApi.addEventListener("videoConferenceLeft", () => {
+                    void handleCallDialogChange(false)
+                  })
+                }}
+                getIFrameRef={(iframeRef) => {
+                  iframeRef.style.width = "100%"
+                  iframeRef.style.height = "100%"
+                  iframeRef.style.border = "0"
+                }}
+              />
+            ) : (
+              <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
+                Подготовка звонка...
+              </div>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

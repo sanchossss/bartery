@@ -40,14 +40,18 @@ function buildSkillFromProfile(
   avgRating: number,
   reviewCount: number
 ): Skill | null {
-  const row = profile.skills?.find(
-    (s) => s.skill_id === skillId && s.type === "teach"
-  )
+  const sameSkillRows = (profile.skills || []).filter((s) => s.skill_id === skillId)
+  // Slug currently contains userId-skillId, so type is not encoded.
+  // Prefer "teach" when both exist, otherwise fallback to any existing row.
+  const row =
+    sameSkillRows.find((s) => s.type === "teach") ||
+    sameSkillRows[0]
   if (!row) return null
 
   const synthetic: TeachOfferRow = {
     user_id: profile.id,
     skill_id: skillId,
+    offer_type: row.type === "learn" ? "learn" : "teach",
     proficiency_level: row.proficiency_level,
     offer_description: row.description,
     username: profile.username,
@@ -195,6 +199,16 @@ export default function SkillDetailClient({
       <div className="flex flex-wrap items-center gap-2">
         <Badge variant="secondary">{skill.category}</Badge>
         <Badge variant="outline">{getLevelLabel(skill.level)}</Badge>
+        <Badge
+          variant="outline"
+          className={
+            skill.exchangeType === "teach"
+              ? "border-emerald-200 bg-emerald-50 text-emerald-700"
+              : "border-blue-200 bg-blue-50 text-blue-700"
+          }
+        >
+          {skill.exchangeType === "teach" ? "Обучаю" : "Хочу научиться"}
+        </Badge>
       </div>
 
       <h1 className="mt-4 text-3xl font-bold tracking-tight text-foreground md:text-4xl">
@@ -263,9 +277,12 @@ export default function SkillDetailClient({
               </AvatarFallback>
             </Avatar>
             <div className="min-w-0 flex-1 space-y-1.5 pt-0.5">
-              <p className="text-lg font-bold leading-tight tracking-tight text-foreground">
+              <Link
+                href={`/users/${skill.userId}`}
+                className="text-lg font-bold leading-tight tracking-tight text-foreground hover:text-primary"
+              >
                 {skill.user.name}
-              </p>
+              </Link>
               <p className="flex flex-wrap items-center gap-1.5 text-sm text-muted-foreground">
                 <Star className="size-4 shrink-0 fill-primary text-primary" />
                 <span className="font-semibold text-foreground">

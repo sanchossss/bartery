@@ -3,13 +3,13 @@
 import { useState, useMemo, useEffect } from "react"
 import Link from "next/link"
 import { useSearchParams } from "next/navigation"
-import { Search, Star, SlidersHorizontal, X } from "lucide-react"
+import { ChevronDown, Search, Star, X } from "lucide-react"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Card, CardContent } from "@/components/ui/card"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
-import { apiFetch } from "@/lib/api-client"
+import { apiFetch, getStoredAuth } from "@/lib/api-client"
 import { teachOfferToSkill } from "@/lib/mappers"
 import type { Skill } from "@/lib/types"
 import type { TeachOfferRow } from "@/lib/types"
@@ -17,7 +17,12 @@ import { getLevelLabel } from "@/lib/ui-helpers"
 
 type CategoryRow = { id: number; name: string }
 
-function SkillCard({ skill }: { skill: Skill }) {
+function SkillCard({ skill, showTypeBadge }: { skill: Skill; showTypeBadge: boolean }) {
+  const typeLabel = skill.exchangeType === "teach" ? "Обучаю" : "Хочу научиться"
+  const typeClass =
+    skill.exchangeType === "teach"
+      ? "border-emerald-200 bg-emerald-50 text-emerald-700"
+      : "border-blue-200 bg-blue-50 text-blue-700"
   return (
     <Link href={`/skills/${skill.id}`}>
       <Card className="h-full transition-colors hover:border-primary/30">
@@ -31,6 +36,13 @@ function SkillCard({ skill }: { skill: Skill }) {
             </Badge>
           </div>
           <h3 className="mt-3 text-base font-semibold text-foreground">{skill.title}</h3>
+          {showTypeBadge && (
+            <div className="mt-2">
+              <Badge variant="outline" className={`text-[11px] ${typeClass}`}>
+                {typeLabel}
+              </Badge>
+            </div>
+          )}
           <p className="mt-2 line-clamp-2 flex-1 text-sm leading-relaxed text-muted-foreground">
             {skill.description}
           </p>
@@ -78,6 +90,8 @@ export default function SkillsCatalog() {
   const [categories, setCategories] = useState<CategoryRow[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [categoriesExpanded, setCategoriesExpanded] = useState(false)
+  const currentUserId = getStoredAuth()?.user?.id ?? null
 
   useEffect(() => {
     const cat = searchParams.get("category") || ""
@@ -113,6 +127,7 @@ export default function SkillsCatalog() {
 
   const filtered = useMemo(() => {
     return skills.filter((s) => {
+      if (currentUserId !== null && Number(s.userId) === Number(currentUserId)) return false
       const matchesQuery =
         !query ||
         s.title.toLowerCase().includes(query.toLowerCase()) ||
@@ -121,7 +136,7 @@ export default function SkillsCatalog() {
       const matchesCategory = !selectedCategory || s.category === selectedCategory
       return matchesQuery && matchesCategory
     })
-  }, [query, selectedCategory, skills])
+  }, [query, selectedCategory, skills, currentUserId])
 
   if (loading) {
     return (
@@ -161,13 +176,25 @@ export default function SkillsCatalog() {
             className="pl-9"
           />
         </div>
-        <Button variant="outline" className="gap-2 sm:hidden" type="button">
-          <SlidersHorizontal className="size-4" />
-          Фильтры
+      </div>
+
+      <div className="mt-4 flex items-center justify-between">
+        <p className="text-sm font-medium text-foreground">Категории</p>
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon"
+          className="size-8"
+          onClick={() => setCategoriesExpanded((v) => !v)}
+          aria-label={categoriesExpanded ? "Свернуть категории" : "Развернуть категории"}
+        >
+          <ChevronDown
+            className={`size-4 transition-transform ${categoriesExpanded ? "rotate-180" : ""}`}
+          />
         </Button>
       </div>
 
-      <div className="mt-4 flex flex-wrap gap-2">
+      <div className={`mt-2 flex flex-wrap gap-2 ${!categoriesExpanded ? "max-h-10 overflow-hidden" : ""}`}>
         <button
           type="button"
           onClick={() => setSelectedCategory("")}
@@ -216,7 +243,7 @@ export default function SkillsCatalog() {
 
       <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {filtered.map((skill) => (
-          <SkillCard key={skill.id} skill={skill} />
+          <SkillCard key={skill.id} skill={skill} showTypeBadge />
         ))}
       </div>
 

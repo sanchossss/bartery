@@ -50,6 +50,7 @@ export interface Skill {
   user: User
   userId: number
   skillId: number
+  exchangeType: "teach" | "learn"
 }
 
 export interface Message {
@@ -71,6 +72,7 @@ export interface Chat {
 export interface TeachOfferRow {
   user_id: number
   skill_id: number
+  offer_type: "teach" | "learn"
   proficiency_level: number
   offer_description: string | null
   username: string

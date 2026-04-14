@@ -51,5 +51,6 @@ export function teachOfferToSkill(row: TeachOfferRow): Skill {
     user,
     userId: row.user_id,
     skillId: row.skill_id,
+    exchangeType: row.offer_type,
   }
 }

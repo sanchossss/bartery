@@ -13,9 +13,8 @@ import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Separator } from "@/components/ui/separator"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { AchievementCard } from "@/components/gamification"
 import { apiFetch, clearStoredAuth, getStoredAuth, setStoredAuth } from "@/lib/api-client"
-import type { Achievement, User, UserStats } from "@/lib/types"
+import type { User, UserStats } from "@/lib/types"
 import { offerSlug } from "@/lib/types"
 import { initialsFromName, pointsToLevel, pointsToXpWindow } from "@/lib/ui-helpers"
 
@@ -51,7 +50,22 @@ type UserBadgeRow = {
   awarded_at: string
 }
 
-function meToViewUser(me: MeUser, avgRating: number, reviewTotal: number): User {
+type ConversationRow = {
+  id: number
+  username: string
+  full_name: string | null
+  last_message: string | null
+  unread: number
+}
+
+type ConversationMessageRow = {
+  id: number
+  sender_id: number
+  receiver_id: number
+  content: string
+}
+
+function meToViewUser(me: MeUser, avgRating: number): User {
   const level = pointsToLevel(me.points)
   const { xp, xpToNextLevel } = pointsToXpWindow(me.points)
   const stats: UserStats = {
@@ -87,8 +101,10 @@ export default function ProfilePage() {
   const [reviews, setReviews] = useState<
     { id: number; reviewer_name: string; rating: number; comment: string | null; created_at: string }[]
   >([])
-  const [badges, setBadges] = useState<Achievement[]>([])
   const [profileBadges, setProfileBadges] = useState<UserBadgeRow[]>([])
+  const [incomingLearnSkillIds, setIncomingLearnSkillIds] = useState<Set<number>>(new Set())
+  const [incomingMessagesCountBySkillId, setIncomingMessagesCountBySkillId] = useState<Record<number, number>>({})
+  const [peerIdsBySkillId, setPeerIdsBySkillId] = useState<Record<number, number[]>>({})
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
@@ -113,31 +129,85 @@ export default function ProfilePage() {
         bio: u.bio?.trim() || "",
       })
 
-      const [revRes, badgeRes] = await Promise.all([
+      const [revRes, badgeRes, convRes] = await Promise.all([
         apiFetch<{ reviews: typeof reviews; average_rating: number; total: number }>(
           `/api/reviews/${u.id}`
         ),
         apiFetch<{ badges: UserBadgeRow[] }>(
           `/api/badges/user/${u.id}`
         ),
+        apiFetch<{ conversations: ConversationRow[] }>("/api/messages", { token: auth.token }),
       ])
       const revList = revRes.reviews || []
       setReviews(revList)
       const avg = revRes.average_rating || 0
 
-      const ach: Achievement[] = (badgeRes.badges || []).map((b) => ({
-        id: String(b.id),
-        title: b.name,
-        description: `Уровень ${b.level}`,
-        icon: "star",
-        unlockedAt: b.awarded_at,
-      }))
-      setBadges(ach)
       setProfileBadges(badgeRes.badges || [])
+      const conversations = convRes.conversations || []
 
-      const vu = meToViewUser(u, avg, revRes.total || 0)
-      vu.achievements = ach
+      const vu = meToViewUser(u, avg)
       setViewUser(vu)
+
+      const learnSkills = (u.skills || []).filter((s) => s.type === "learn")
+      if (learnSkills.length === 0 || conversations.length === 0) {
+        setIncomingLearnSkillIds(new Set())
+        setIncomingMessagesCountBySkillId({})
+        setPeerIdsBySkillId({})
+        return
+      }
+
+      const threads = await Promise.all(
+        conversations.map(async (c) => {
+          try {
+            const res = await apiFetch<{ messages: ConversationMessageRow[] }>(`/api/messages/${c.id}`, {
+              token: auth.token,
+            })
+            return { peerId: c.id, messages: res.messages || [] }
+          } catch {
+            return { peerId: c.id, messages: [] as ConversationMessageRow[] }
+          }
+        })
+      )
+
+      const matchedIds = new Set<number>()
+      const matchedCounts: Record<number, number> = {}
+      const matchedPeerIds: Record<number, Set<number>> = {}
+      const incomingMessages = threads.flatMap((t) =>
+        t.messages
+          .filter((m) => m.sender_id !== u.id)
+          .map((m) => ({ ...m, peerId: t.peerId }))
+      )
+      for (const msg of incomingMessages) {
+        const text = (msg.content || "").toLowerCase()
+        for (const skill of learnSkills) {
+          const skillName = skill.skill_name.toLowerCase()
+          if (skillName && text.includes(skillName)) {
+            matchedIds.add(skill.skill_id)
+            matchedCounts[skill.skill_id] = (matchedCounts[skill.skill_id] || 0) + 1
+            if (!matchedPeerIds[skill.skill_id]) matchedPeerIds[skill.skill_id] = new Set<number>()
+            matchedPeerIds[skill.skill_id].add(msg.peerId)
+          }
+        }
+      }
+
+      // Fallback: if incoming messages exist but no explicit skill mention found,
+      // surface all "learn" skills so user still sees actionable exchange intents.
+      if (incomingMessages.length > 0 && matchedIds.size === 0) {
+        const allPeers = Array.from(new Set(incomingMessages.map((m) => m.peerId)))
+        for (const skill of learnSkills) {
+          matchedIds.add(skill.skill_id)
+          matchedCounts[skill.skill_id] = incomingMessages.length
+          matchedPeerIds[skill.skill_id] = new Set(allPeers)
+        }
+      }
+
+      setIncomingLearnSkillIds(matchedIds)
+      setIncomingMessagesCountBySkillId(matchedCounts)
+      setPeerIdsBySkillId(
+        Object.fromEntries(
+          Object.entries(matchedPeerIds).map(([skillId, peers]) => [Number(skillId), Array.from(peers)])
+        )
+      )
     } catch (e) {
       setError(e instanceof Error ? e.message : "Ошибка загрузки")
     } finally {
@@ -203,7 +273,10 @@ export default function ProfilePage() {
   }
 
   const currentUser = viewUser
-  const teachSkills = (me.skills || []).filter((s) => s.type === "teach")
+  const mySkills = me.skills || []
+  const exchangeSkills = mySkills.filter(
+    (s) => s.type === "learn" && incomingLearnSkillIds.has(s.skill_id)
+  )
   const monthsOnPlatform = (() => {
     if (!me.created_at) return "—"
     const created = new Date(String(me.created_at).replace(" ", "T") + "Z")
@@ -323,6 +396,10 @@ export default function ProfilePage() {
             </div>
           </div>
 
+          <Button className="mt-4 w-full sm:w-auto" asChild>
+            <Link href="/profile/add-skill">Добавить навык</Link>
+          </Button>
+
           <div className="mt-5">
             <p className="text-sm font-medium text-foreground">Достижения:</p>
             {profileBadges.length === 0 ? (
@@ -405,10 +482,6 @@ export default function ProfilePage() {
                 <RefreshCw className="size-3.5" />
                 Обмены
               </TabsTrigger>
-              <TabsTrigger value="achievements" className="gap-1.5">
-                <Trophy className="size-3.5" />
-                Бейджи
-              </TabsTrigger>
               <TabsTrigger value="reviews" className="gap-1.5">
                 <Star className="size-3.5" />
                 Отзывы
@@ -417,7 +490,7 @@ export default function ProfilePage() {
 
             <div className="mt-6">
               <TabsContent value="skills">
-                {teachSkills.length === 0 ? (
+                {mySkills.length === 0 ? (
                   <Card>
                     <CardContent className="flex flex-col items-center gap-3 py-12 text-center">
                       <BookOpen className="size-10 text-muted-foreground/50" />
@@ -426,7 +499,7 @@ export default function ProfilePage() {
                   </Card>
                 ) : (
                   <div className="flex flex-col gap-4">
-                    {teachSkills.map((s) => (
+                    {mySkills.map((s) => (
                       <Link key={s.skill_id} href={`/skills/${offerSlug(me.id, s.skill_id)}`}>
                         <Card className="transition-colors hover:border-primary/30">
                           <CardContent className="flex items-center justify-between p-5">
@@ -434,6 +507,16 @@ export default function ProfilePage() {
                               <h3 className="font-semibold text-foreground">{s.skill_name}</h3>
                               <Badge variant="secondary" className="mt-1 text-xs">
                                 {s.category_name || "Категория"}
+                              </Badge>
+                              <Badge
+                                variant="outline"
+                                className={`mt-1 ml-2 text-xs ${
+                                  s.type === "teach"
+                                    ? "border-emerald-200 bg-emerald-50 text-emerald-700"
+                                    : "border-blue-200 bg-blue-50 text-blue-700"
+                                }`}
+                              >
+                                {s.type === "teach" ? "Обучаю" : "Хочу научиться"}
                               </Badge>
                               {s.description && (
                                 <p className="mt-2 line-clamp-2 text-sm text-muted-foreground">{s.description}</p>
@@ -448,21 +531,53 @@ export default function ProfilePage() {
               </TabsContent>
 
               <TabsContent value="exchanges">
-                <Card>
-                  <CardContent className="py-12 text-center text-muted-foreground">
-                    История обменов будет здесь, когда появится соответствующий раздел API.
-                  </CardContent>
-                </Card>
-              </TabsContent>
-
-              <TabsContent value="achievements">
-                <div className="grid gap-3 sm:grid-cols-2">
-                  {badges.length === 0 ? (
-                    <p className="text-muted-foreground">Пока нет бейджей</p>
-                  ) : (
-                    badges.map((a) => <AchievementCard key={a.id} achievement={a} />)
-                  )}
-                </div>
+                {exchangeSkills.length === 0 ? (
+                  <Card>
+                    <CardContent className="py-12 text-center text-muted-foreground">
+                      Пока нет входящих сообщений по навыкам, которые вы хотите изучать.
+                    </CardContent>
+                  </Card>
+                ) : (
+                  <div className="flex flex-col gap-4">
+                    {exchangeSkills.map((s) => (
+                      <Card key={s.skill_id}>
+                        <CardContent className="flex flex-col gap-3 p-5 sm:flex-row sm:items-center sm:justify-between">
+                          <div>
+                            <h3 className="font-semibold text-foreground">{s.skill_name}</h3>
+                            <div className="mt-1 flex flex-wrap items-center gap-2">
+                              <Badge variant="secondary" className="text-xs">
+                                {s.category_name || "Категория"}
+                              </Badge>
+                              <Badge variant="outline" className="border-blue-200 bg-blue-50 text-blue-700 text-xs">
+                                Хочу научиться
+                              </Badge>
+                              <span className="text-xs text-muted-foreground">
+                                Сообщений: {incomingMessagesCountBySkillId[s.skill_id] || 0}
+                              </span>
+                              <span className="text-xs text-muted-foreground">
+                                Собеседников: {(peerIdsBySkillId[s.skill_id] || []).length}
+                              </span>
+                            </div>
+                            {s.description && (
+                              <p className="mt-2 line-clamp-2 text-sm text-muted-foreground">{s.description}</p>
+                            )}
+                          </div>
+                          <Button asChild size="sm" className="sm:shrink-0">
+                            <Link
+                              href={
+                                (peerIdsBySkillId[s.skill_id] || []).length === 1
+                                  ? `/chat?with=${peerIdsBySkillId[s.skill_id][0]}`
+                                  : "/chat"
+                              }
+                            >
+                              Открыть чат
+                            </Link>
+                          </Button>
+                        </CardContent>
+                      </Card>
+                    ))}
+                  </div>
+                )}
               </TabsContent>
 
               <TabsContent value="reviews">

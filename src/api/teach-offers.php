@@ -12,7 +12,7 @@ $limit = min(200, max(1, getInt($_GET ?? [], 'limit', 100)));
 try {
     $sql = '
         SELECT
-            us.user_id, us.skill_id, us.proficiency_level, us.description AS offer_description,
+            us.user_id, us.skill_id, us.type AS offer_type, us.proficiency_level, us.description AS offer_description,
             u.username, u.full_name, u.avatar_url, u.bio,
             s.name AS skill_name, s.description AS skill_description, s.category_id, c.name AS category_name,
             (SELECT ROUND(AVG(rating), 1) FROM reviews WHERE reviewed_id = u.id) AS teacher_avg_rating,
@@ -21,7 +21,7 @@ try {
         INNER JOIN users u ON u.id = us.user_id AND u.is_active = 1
         INNER JOIN skills s ON s.id = us.skill_id
         LEFT JOIN categories c ON c.id = s.category_id
-        WHERE us.type = "teach"
+        WHERE us.type IN ("teach", "learn")
     ';
     $params = [];
     if ($categoryId) {
