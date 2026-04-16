@@ -16,7 +16,7 @@
 
 - Docker Desktop (или Docker Engine + Compose plugin)
 
-### Запуск
+### Запуск (production, по умолчанию)
 
 Из корня репозитория:
 
@@ -24,17 +24,41 @@
 docker compose up -d --build
 ```
 
+или через `make`:
+
+```bash
+make up
+```
+
+### Запуск (development, hot reload)
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d --build
+```
+
+или через `make`:
+
+```bash
+make up-dev
+```
+
 ### Открыть в браузере
 
 - Приложение (React): `http://localhost:8080`
 - Админка: `http://localhost:8080/admin`
-- Прямой frontend (dev): `http://localhost:3000`
+- Прямой frontend: `http://localhost:3000`
 - API пример: `http://localhost:8080/api/categories`
 
 ### Остановка
 
 ```bash
 docker compose down
+```
+
+для dev-режима:
+
+```bash
+make down-dev
 ```
 
 ## Переменные окружения
@@ -75,7 +99,7 @@ APP_URL=http://localhost:8080
 - `proxy` (`skills-exchange-proxy`) — порт `8080:80`
 - `app` (`skills-exchange-app`) — PHP API
 - `web` (`skills-exchange-web`) — legacy web/admin
-- `frontend` (`bartery_frontend`) — Next.js dev server `3000:3000`
+- `frontend` (`bartery_frontend`) — Next.js (`3000:3000`)
 - `mysql` (`skills-exchange-mysql`) — `3306:3306`
 
 ## Основные API эндпоинты
@@ -139,6 +163,19 @@ APP_URL=http://localhost:8080
 - Backend логирует события звонков в `logs/video_calls.log`.
 
 ## Полезные команды
+
+### Make shortcuts
+
+```bash
+make up          # production запуск
+make up-dev      # development запуск
+make down        # остановка production стека
+make down-dev    # остановка development стека
+make restart     # перезапуск production
+make restart-dev # перезапуск development
+make logs        # логи docker compose
+make ps          # список контейнеров
+```
 
 ### Проверить контейнеры
 

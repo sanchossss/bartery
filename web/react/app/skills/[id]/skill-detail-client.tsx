@@ -242,30 +242,6 @@ export default function SkillDetailClient({
               ))}
             </div>
           </div>
-
-          {similarSkills.length > 0 && (
-            <div className="mt-10">
-              <h2 className="text-lg font-semibold text-foreground">Похожие навыки</h2>
-              <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                {similarSkills.map((s) => (
-                  <Link key={s.id} href={`/skills/${s.id}`}>
-                    <Card className="transition-colors hover:border-primary/30">
-                      <CardContent className="p-4">
-                        <Badge variant="secondary" className="text-xs">
-                          {s.category}
-                        </Badge>
-                        <h3 className="mt-2 font-medium text-foreground">{s.title}</h3>
-                        <div className="mt-2 flex items-center gap-1">
-                          <Star className="size-3 fill-primary text-primary" />
-                          <span className="text-sm text-foreground">{s.rating || "—"}</span>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  </Link>
-                ))}
-              </div>
-            </div>
-          )}
         </div>
 
         <Card className="rounded-2xl border border-border/80 shadow-sm lg:sticky lg:top-24">
@@ -352,6 +328,30 @@ export default function SkillDetailClient({
         </CardContent>
         </Card>
       </div>
+
+      {similarSkills.length > 0 && (
+        <div className="mt-10">
+          <h2 className="text-lg font-semibold text-foreground">Похожие навыки</h2>
+          <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {similarSkills.map((s) => (
+              <Link key={s.id} href={`/skills/${s.id}`}>
+                <Card className="transition-colors hover:border-primary/30">
+                  <CardContent className="p-4">
+                    <Badge variant="secondary" className="text-xs">
+                      {s.category}
+                    </Badge>
+                    <h3 className="mt-2 font-medium text-foreground">{s.title}</h3>
+                    <div className="mt-2 flex items-center gap-1">
+                      <Star className="size-3 fill-primary text-primary" />
+                      <span className="text-sm text-foreground">{s.rating || "—"}</span>
+                    </div>
+                  </CardContent>
+                </Card>
+              </Link>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   )
 }

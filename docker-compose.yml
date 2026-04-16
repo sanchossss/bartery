@@ -57,19 +57,16 @@ services:
     build:
       context: ./web/react
       dockerfile: Dockerfile
+      args:
+        API_BACKEND_URL: http://app:80
+        NEXT_PUBLIC_API_ORIGIN: http://localhost:8080
     container_name: bartery_frontend
-    working_dir: /app
-    volumes:
-      - ./web/react:/app
-      - /app/node_modules
-      - /app/.next
     ports:
       - "3000:3000"
     depends_on:
       - app
     environment:
-      NODE_ENV: development
-      CHOKIDAR_USEPOLLING: "true"
+      NODE_ENV: production
       API_BACKEND_URL: http://app:80
       NEXT_PUBLIC_API_ORIGIN: http://localhost:8080
 
