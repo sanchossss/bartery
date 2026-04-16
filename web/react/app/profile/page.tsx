@@ -1,13 +1,13 @@
 "use client"
 
-import { useCallback, useEffect, useState } from "react"
+import { useCallback, useEffect, useRef, useState } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { BookOpen, Calendar, Edit3, LogOut, RefreshCw, Save, Star, Trophy, X } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Card, CardContent } from "@/components/ui/card"
-import { Avatar, AvatarFallback } from "@/components/ui/avatar"
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
@@ -110,6 +110,9 @@ export default function ProfilePage() {
 
   const [isEditing, setIsEditing] = useState(false)
   const [editData, setEditData] = useState({ name: "", bio: "" })
+  const [avatarUploading, setAvatarUploading] = useState(false)
+  const [avatarError, setAvatarError] = useState<string | null>(null)
+  const fileInputRef = useRef<HTMLInputElement | null>(null)
 
   const load = useCallback(async () => {
     const auth = getStoredAuth()
@@ -253,6 +256,36 @@ export default function ProfilePage() {
     }
   }
 
+  async function handleAvatarPick(file: File | null) {
+    const auth = getStoredAuth()
+    if (!auth?.token || !file) return
+
+    setAvatarError(null)
+    if (file.size > 2 * 1024 * 1024) {
+      setAvatarError("Файл слишком большой (макс. 2MB).")
+      return
+    }
+
+    setAvatarUploading(true)
+    try {
+      await apiFetch("/api/users/me/avatar", {
+        method: "POST",
+        token: auth.token,
+        // backend expects multipart form with field name `avatar`
+        body: (() => {
+          const fd = new FormData()
+          fd.append("avatar", file)
+          return fd
+        })(),
+      })
+      await load()
+    } catch (e) {
+      setAvatarError(e instanceof Error ? e.message : "Не удалось загрузить фото")
+    } finally {
+      setAvatarUploading(false)
+    }
+  }
+
   if (loading || (!viewUser && !error)) {
     return (
       <div className="mx-auto max-w-4xl px-4 py-16 text-center text-muted-foreground">
@@ -296,12 +329,40 @@ export default function ProfilePage() {
           <div className="flex flex-col gap-6 sm:flex-row sm:items-start sm:justify-between">
             <div className="flex items-start gap-4">
               <div className="relative">
-                <Avatar className="size-20 md:size-24">
+                  <Avatar
+                    className="size-20 cursor-pointer md:size-24"
+                    role="button"
+                    tabIndex={0}
+                    aria-label="Загрузить фото профиля"
+                    onClick={() => fileInputRef.current?.click()}
+                  >
+                  {currentUser.avatarUrl && <AvatarImage src={currentUser.avatarUrl} alt="avatar" />}
                   <AvatarFallback className="bg-primary/10 text-xl font-bold text-primary md:text-2xl">
                     {currentUser.avatar}
                   </AvatarFallback>
                 </Avatar>
+
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={(e) => void handleAvatarPick(e.target.files?.[0] ?? null)}
+                />
+
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="icon"
+                  className="absolute bottom-0 right-0 h-9 w-9 rounded-full bg-background/95"
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={avatarUploading}
+                >
+                  <Edit3 className="size-4" />
+                  <span className="sr-only">Загрузить фото</span>
+                </Button>
               </div>
+                {avatarError && <p className="mt-2 w-24 text-xs text-destructive">{avatarError}</p>}
               <div className="flex-1">
                 {isEditing ? (
                   <div className="flex flex-col gap-3">

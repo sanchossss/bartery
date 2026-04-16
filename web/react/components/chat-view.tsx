@@ -554,12 +554,7 @@ export default function ChatView() {
           </ScrollArea>
         </div>
 
-        <div
-          className={cn(
-            "flex flex-1 flex-col bg-background",
-            showSidebar && "hidden sm:flex"
-          )}
-        >
+        <div className={cn("min-h-0 flex flex-1 flex-col bg-background", showSidebar && "hidden sm:flex")}>
           <div className="flex items-center gap-3 border-b border-border px-4 py-3">
             <button
               type="button"
@@ -594,8 +589,8 @@ export default function ChatView() {
             </div>
           )}
 
-          <ScrollArea className="flex-1">
-            <div className="flex flex-col gap-3 p-4">
+          <ScrollArea className="flex-1 min-h-0">
+            <div className="flex min-h-0 flex-col gap-3 p-4">
               {currentMessages.map((msg) => (
                 <MessageBubble key={msg.id} message={msg} myId={myId!} />
               ))}
