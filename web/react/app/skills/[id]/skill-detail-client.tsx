@@ -129,6 +129,15 @@ export default function SkillDetailClient({
         const skillLabels = (profile.skills || []).map((s) => s.skill_name)
         built.user.skills = [...new Set(skillLabels)]
 
+        const currentOffer = (offersRes.offers || []).find(
+          (o) => Number(o.user_id) === Number(built.userId) && Number(o.skill_id) === Number(built.skillId)
+        )
+        if (currentOffer?.skill_description?.trim()) {
+          const canonical = currentOffer.skill_description.trim()
+          built.description = canonical.slice(0, 220)
+          built.longDescription = canonical
+        }
+
         const all = (offersRes.offers || []).map(teachOfferToSkill)
         const similar = all
           .filter((s) => s.category === built.category && s.id !== built.id)
@@ -242,116 +251,117 @@ export default function SkillDetailClient({
               ))}
             </div>
           </div>
+          <Card className="mt-10 rounded-2xl border border-border/80 shadow-sm">
+            <CardContent className="space-y-0 p-6 md:p-8 lg:p-6">
+              <div className="flex gap-4">
+                <Avatar className="size-14 shrink-0 ring-2 ring-background">
+                  <AvatarFallback className="rounded-full bg-primary/15 text-base font-semibold text-primary">
+                    {skill.user.avatar}
+                  </AvatarFallback>
+                </Avatar>
+                <div className="min-w-0 flex-1 space-y-1.5 pt-0.5">
+                  <Link
+                    href={`/users/${skill.userId}`}
+                    className="text-lg font-bold leading-tight tracking-tight text-foreground hover:text-primary"
+                  >
+                    {skill.user.name}
+                  </Link>
+                  <p className="flex flex-wrap items-center gap-1.5 text-sm text-muted-foreground">
+                    <Star className="size-4 shrink-0 fill-primary text-primary" />
+                    <span className="font-semibold text-foreground">
+                      {skill.user.rating ?? "—"}
+                    </span>
+                    <span>рейтинг преподавателя</span>
+                  </p>
+                </div>
+              </div>
+
+              <p className="mt-5 text-sm leading-relaxed text-muted-foreground md:text-[15px]">
+                {skill.user.bio || "Пользователь ещё не заполнил описание."}
+              </p>
+
+              <Separator className="my-6" />
+
+              {skill.user.skills.length > 0 && (
+                <div>
+                  <p className="text-sm font-semibold text-foreground">Навыки в профиле:</p>
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    {skill.user.skills.map((s) => (
+                      <span
+                        key={s}
+                        className="inline-flex items-center rounded-full border border-border bg-background px-3 py-1.5 text-sm font-normal text-foreground shadow-[0_1px_0_rgba(0,0,0,0.04)]"
+                      >
+                        {s}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              <Button className="mt-6 h-12 w-full gap-2 rounded-xl text-base font-medium" size="lg" asChild>
+                <Link href={`/chat?with=${skill.userId}`}>
+                  <MessageCircle className="size-5" />
+                  Написать сообщение
+                </Link>
+              </Button>
+
+              {otherSkills.length > 0 && (
+                <>
+                  <Separator className="my-6" />
+                  <div>
+                    <p className="text-sm font-semibold text-foreground">Другие навыки автора:</p>
+                    <div className="mt-3 flex flex-col gap-3">
+                      {otherSkills.map((s) => (
+                        <Link
+                          key={s.id}
+                          href={`/skills/${s.id}`}
+                          className="flex items-center justify-between gap-3 rounded-xl border border-border bg-card px-4 py-3.5 shadow-[0_1px_2px_rgba(0,0,0,0.04)] transition-colors hover:border-primary/25 hover:bg-muted/30"
+                        >
+                          <span className="text-sm font-medium leading-snug text-foreground">
+                            {s.title}
+                          </span>
+                          <div className="flex shrink-0 items-center gap-1">
+                            <Star className="size-4 fill-primary text-primary" />
+                            <span className="text-sm font-semibold tabular-nums text-foreground">
+                              {s.rating || "—"}
+                            </span>
+                          </div>
+                        </Link>
+                      ))}
+                    </div>
+                  </div>
+                </>
+              )}
+            </CardContent>
+          </Card>
         </div>
 
-        <Card className="rounded-2xl border border-border/80 shadow-sm lg:sticky lg:top-24">
-          <CardContent className="space-y-0 p-6 md:p-8 lg:p-6">
-          <div className="flex gap-4">
-            <Avatar className="size-14 shrink-0 ring-2 ring-background">
-              <AvatarFallback className="rounded-full bg-primary/15 text-base font-semibold text-primary">
-                {skill.user.avatar}
-              </AvatarFallback>
-            </Avatar>
-            <div className="min-w-0 flex-1 space-y-1.5 pt-0.5">
-              <Link
-                href={`/users/${skill.userId}`}
-                className="text-lg font-bold leading-tight tracking-tight text-foreground hover:text-primary"
-              >
-                {skill.user.name}
-              </Link>
-              <p className="flex flex-wrap items-center gap-1.5 text-sm text-muted-foreground">
-                <Star className="size-4 shrink-0 fill-primary text-primary" />
-                <span className="font-semibold text-foreground">
-                  {skill.user.rating ?? "—"}
-                </span>
-                <span>рейтинг преподавателя</span>
-              </p>
-            </div>
-          </div>
-
-          <p className="mt-5 text-sm leading-relaxed text-muted-foreground md:text-[15px]">
-            {skill.user.bio || "Пользователь ещё не заполнил описание."}
-          </p>
-
-          <Separator className="my-6" />
-
-          {skill.user.skills.length > 0 && (
-            <div>
-              <p className="text-sm font-semibold text-foreground">Навыки в профиле:</p>
-              <div className="mt-3 flex flex-wrap gap-2">
-                {skill.user.skills.map((s) => (
-                  <span
-                    key={s}
-                    className="inline-flex items-center rounded-full border border-border bg-background px-3 py-1.5 text-sm font-normal text-foreground shadow-[0_1px_0_rgba(0,0,0,0.04)]"
-                  >
-                    {s}
-                  </span>
+        <div className="lg:col-span-1">
+          {similarSkills.length > 0 && (
+            <div className="lg:sticky lg:top-24">
+              <h2 className="text-lg font-semibold text-foreground">Похожие навыки</h2>
+              <div className="mt-4 flex flex-col gap-4">
+                {similarSkills.map((s) => (
+                  <Link key={s.id} href={`/skills/${s.id}`}>
+                    <Card className="transition-colors hover:border-primary/30">
+                      <CardContent className="p-4">
+                        <Badge variant="secondary" className="text-xs">
+                          {s.category}
+                        </Badge>
+                        <h3 className="mt-2 font-medium text-foreground">{s.title}</h3>
+                        <div className="mt-2 flex items-center gap-1">
+                          <Star className="size-3 fill-primary text-primary" />
+                          <span className="text-sm text-foreground">{s.rating || "—"}</span>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  </Link>
                 ))}
               </div>
             </div>
           )}
-
-          <Button className="mt-6 h-12 w-full gap-2 rounded-xl text-base font-medium" size="lg" asChild>
-            <Link href={`/chat?with=${skill.userId}`}>
-              <MessageCircle className="size-5" />
-              Написать сообщение
-            </Link>
-          </Button>
-
-          {otherSkills.length > 0 && (
-            <>
-              <Separator className="my-6" />
-              <div>
-                <p className="text-sm font-semibold text-foreground">Другие навыки автора:</p>
-                <div className="mt-3 flex flex-col gap-3">
-                  {otherSkills.map((s) => (
-                    <Link
-                      key={s.id}
-                      href={`/skills/${s.id}`}
-                      className="flex items-center justify-between gap-3 rounded-xl border border-border bg-card px-4 py-3.5 shadow-[0_1px_2px_rgba(0,0,0,0.04)] transition-colors hover:border-primary/25 hover:bg-muted/30"
-                    >
-                      <span className="text-sm font-medium leading-snug text-foreground">
-                        {s.title}
-                      </span>
-                      <div className="flex shrink-0 items-center gap-1">
-                        <Star className="size-4 fill-primary text-primary" />
-                        <span className="text-sm font-semibold tabular-nums text-foreground">
-                          {s.rating || "—"}
-                        </span>
-                      </div>
-                    </Link>
-                  ))}
-                </div>
-              </div>
-            </>
-          )}
-        </CardContent>
-        </Card>
-      </div>
-
-      {similarSkills.length > 0 && (
-        <div className="mt-10">
-          <h2 className="text-lg font-semibold text-foreground">Похожие навыки</h2>
-          <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {similarSkills.map((s) => (
-              <Link key={s.id} href={`/skills/${s.id}`}>
-                <Card className="transition-colors hover:border-primary/30">
-                  <CardContent className="p-4">
-                    <Badge variant="secondary" className="text-xs">
-                      {s.category}
-                    </Badge>
-                    <h3 className="mt-2 font-medium text-foreground">{s.title}</h3>
-                    <div className="mt-2 flex items-center gap-1">
-                      <Star className="size-3 fill-primary text-primary" />
-                      <span className="text-sm text-foreground">{s.rating || "—"}</span>
-                    </div>
-                  </CardContent>
-                </Card>
-              </Link>
-            ))}
-          </div>
         </div>
-      )}
+      </div>
     </div>
   )
 }

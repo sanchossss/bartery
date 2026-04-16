@@ -32,9 +32,11 @@ function rowToTeacherUser(row: TeachOfferRow): User {
 
 export function teachOfferToSkill(row: TeachOfferRow): Skill {
   const user = rowToTeacherUser(row)
+  // Prefer canonical description from skills table.
+  // Some user_skills descriptions in DB may contain unrelated copied text.
   const desc =
-    (row.offer_description && row.offer_description.trim()) ||
     (row.skill_description && row.skill_description.trim()) ||
+    (row.offer_description && row.offer_description.trim()) ||
     ""
   const rating = row.teacher_avg_rating ?? 0
   return {
