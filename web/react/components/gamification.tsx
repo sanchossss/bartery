@@ -14,7 +14,7 @@ import {
 } from "lucide-react"
 import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { Avatar, AvatarFallback } from "@/components/ui/avatar"
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Progress } from "@/components/ui/progress"
 import type { Achievement, User, UserStats } from "@/lib/types"
 import { getUserLevelTitle, pointsToLevel, pointsToXpWindow } from "@/lib/ui-helpers"
@@ -28,6 +28,7 @@ export type LeaderboardRow = {
   points: number
 }
 import { cn } from "@/lib/utils"
+import { publicUrl } from "@/lib/api-client"
 
 const iconMap: Record<string, React.ComponentType<{ className?: string }>> = {
   rocket: Rocket,
@@ -233,6 +234,10 @@ export function LeaderboardCard({
                   {i + 1}
                 </span>
                 <Avatar className="size-8">
+                  <AvatarImage
+                    src={publicUrl(user.avatar_url) ?? undefined}
+                    alt={user.full_name?.trim() || user.username}
+                  />
                   <AvatarFallback
                     className={cn(
                       "text-xs font-semibold",

@@ -1,0 +1,4 @@
+react/node_modules
+react/.next
+**/node_modules
+**/.next

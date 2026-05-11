@@ -16,8 +16,8 @@ import {
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Card, CardContent } from "@/components/ui/card"
-import { Avatar, AvatarFallback } from "@/components/ui/avatar"
-import { apiFetch, getStoredAuth } from "@/lib/api-client"
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
+import { apiFetch, getStoredAuth, publicUrl } from "@/lib/api-client"
 import { teachOfferToSkill } from "@/lib/mappers"
 import type { Skill } from "@/lib/types"
 import type { TeachOfferRow } from "@/lib/types"
@@ -113,6 +113,7 @@ export function PopularSkillsSection() {
                   </p>
                   <div className="mt-4 flex items-center gap-2">
                     <Avatar className="size-6">
+                      <AvatarImage src={publicUrl(skill.user.avatarUrl) ?? undefined} alt={skill.user.name} />
                       <AvatarFallback className="bg-primary/10 text-[10px] text-primary">
                         {skill.user.avatar}
                       </AvatarFallback>
@@ -286,6 +287,10 @@ export function LeaderboardSectionDynamic() {
                         {i + 1}
                       </span>
                       <Avatar className="size-10">
+                        <AvatarImage
+                          src={publicUrl(user.avatar_url) ?? undefined}
+                          alt={user.full_name?.trim() || user.username}
+                        />
                         <AvatarFallback className="bg-primary/10 text-xs font-semibold text-primary">
                           {initialsFromName(user.full_name, user.username)}
                         </AvatarFallback>

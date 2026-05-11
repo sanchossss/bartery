@@ -1,6 +1,6 @@
 FROM node:20-alpine AS deps
 WORKDIR /app
-COPY package*.json ./
+COPY react/package*.json ./
 RUN npm install
 
 FROM node:20-alpine AS builder
@@ -10,7 +10,7 @@ ARG NEXT_PUBLIC_API_ORIGIN=http://localhost:8080
 ENV API_BACKEND_URL=$API_BACKEND_URL
 ENV NEXT_PUBLIC_API_ORIGIN=$NEXT_PUBLIC_API_ORIGIN
 COPY --from=deps /app/node_modules ./node_modules
-COPY . .
+COPY react/ .
 RUN npm run build
 
 FROM node:20-alpine AS runner

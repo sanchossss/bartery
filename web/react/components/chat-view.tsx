@@ -7,12 +7,12 @@ import { Camera, Send } from "lucide-react"
 import { JitsiMeeting } from "@jitsi/react-sdk"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { Avatar, AvatarFallback } from "@/components/ui/avatar"
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Badge } from "@/components/ui/badge"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { cn } from "@/lib/utils"
-import { apiFetch, getStoredAuth } from "@/lib/api-client"
+import { apiFetch, getStoredAuth, publicUrl } from "@/lib/api-client"
 import { initialsFromName } from "@/lib/ui-helpers"
 import type { Chat, Message } from "@/lib/types"
 
@@ -165,6 +165,10 @@ function ChatListItem({
       )}
     >
       <Avatar className="size-10 shrink-0">
+        <AvatarImage
+          src={publicUrl(chat.participant.avatarUrl) ?? undefined}
+          alt={chat.participant.name}
+        />
         <AvatarFallback
           className={cn(
             "text-xs font-semibold",
@@ -564,6 +568,10 @@ export default function ChatView() {
               &larr;
             </button>
             <Avatar className="size-8">
+              <AvatarImage
+                src={publicUrl(activeChat.participant.avatarUrl) ?? undefined}
+                alt={activeChat.participant.name}
+              />
               <AvatarFallback className="bg-primary/10 text-xs font-semibold text-primary">
                 {activeChat.participant.avatar}
               </AvatarFallback>

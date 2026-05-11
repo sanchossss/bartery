@@ -203,7 +203,8 @@ if (($segments[0] ?? '') !== 'api') {
     $webDir = realpath(__DIR__ . '/../web') ?: (__DIR__ . '/../web');
     $requestPath = $path === '' ? 'index.html' : $path;
     $requestPath = str_replace(['../', '..\\'], '', $requestPath);
-    // uploads/ — из корня проекта
+    // uploads/ — из корня проекта; для несуществующих файлов отдаём чистый 404,
+    // чтобы фронт не получал HTML/JSON-фолбэк с Content-Type, отличным от image/*.
     if (strpos($requestPath, 'uploads/') === 0) {
         $file = __DIR__ . '/../' . $requestPath;
         if (is_file($file)) {
@@ -213,6 +214,10 @@ if (($segments[0] ?? '') !== 'api') {
             readfile($file);
             exit;
         }
+        http_response_code(404);
+        header('Content-Type: text/plain; charset=utf-8');
+        echo 'Not Found';
+        exit;
     }
     $file = $webDir . '/' . $requestPath;
     if (is_file($file)) {
@@ -230,10 +235,19 @@ if (($segments[0] ?? '') !== 'api') {
         exit;
     }
     if (is_dir($file)) {
-        $file = rtrim($file, '/') . '/index.html';
-        if (is_file($file)) {
+        $dir = rtrim($file, '/');
+        foreach (['index.html', 'index.php'] as $idx) {
+            $indexFile = $dir . '/' . $idx;
+            if (!is_file($indexFile)) {
+                continue;
+            }
+            if ($idx === 'index.php') {
+                chdir($dir);
+                require $indexFile;
+                exit;
+            }
             header('Content-Type: text/html; charset=utf-8');
-            readfile($file);
+            readfile($indexFile);
             exit;
         }
     }

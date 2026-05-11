@@ -8,8 +8,8 @@ import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Card, CardContent } from "@/components/ui/card"
-import { Avatar, AvatarFallback } from "@/components/ui/avatar"
-import { apiFetch, getStoredAuth } from "@/lib/api-client"
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
+import { apiFetch, getStoredAuth, publicUrl } from "@/lib/api-client"
 import { teachOfferToSkill } from "@/lib/mappers"
 import type { Skill } from "@/lib/types"
 import type { TeachOfferRow } from "@/lib/types"
@@ -59,6 +59,7 @@ function SkillCard({ skill, showTypeBadge }: { skill: Skill; showTypeBadge: bool
           <div className="mt-4 flex items-center justify-between">
             <div className="flex items-center gap-2">
               <Avatar className="size-6">
+                <AvatarImage src={publicUrl(skill.user.avatarUrl) ?? undefined} alt={skill.user.name} />
                 <AvatarFallback className="bg-primary/10 text-[10px] text-primary">
                   {skill.user.avatar}
                 </AvatarFallback>

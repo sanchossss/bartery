@@ -8,7 +8,6 @@ services:
       - "8080:80"
     depends_on:
       - app
-      - web
       - frontend
 
   app:
@@ -28,35 +27,11 @@ services:
       DB_NAME: ${skills_exchange}
       DB_USER: ${skills_user}
       DB_PASS: ${skills_pass}
-  
-  web:
-    build:
-      context: .
-      dockerfile: web/Dockerfile
-    container_name: skills-exchange-web
-    ports:
-      - "80"
-    volumes:
-      - .:/var/www/html
-    command: >
-      sh -c "mkdir -p /var/www/html/uploads/avatars /var/www/html/logs &&
-             chown -R www-data:www-data /var/www/html/uploads /var/www/html/logs &&
-             chmod -R 755 /var/www/html/uploads /var/www/html/logs &&
-             ln -sf /var/www/html/uploads /var/www/html/web/uploads &&
-             apache2-foreground"
-    depends_on:
-      mysql:
-        condition: service_healthy
-    environment:
-      DB_HOST: mysql
-      DB_NAME: ${skills_exchange}
-      DB_USER: ${skills_user}
-      DB_PASS: ${skills_pass}
 
   frontend:
     build:
-      context: ./web/react
-      dockerfile: Dockerfile
+      context: ./web
+      dockerfile: react/Dockerfile
       args:
         API_BACKEND_URL: http://app:80
         NEXT_PUBLIC_API_ORIGIN: http://localhost:8080

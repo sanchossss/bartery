@@ -5,11 +5,11 @@ import Link from "next/link"
 import { useParams } from "next/navigation"
 import { ArrowLeft, Star } from "lucide-react"
 import { Card, CardContent } from "@/components/ui/card"
-import { Avatar, AvatarFallback } from "@/components/ui/avatar"
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
-import { Button } from "@/components/ui/button"
-import { apiFetch } from "@/lib/api-client"
+import { apiFetch, publicUrl } from "@/lib/api-client"
 import { initialsFromName } from "@/lib/ui-helpers"
+import { offerSlug } from "@/lib/types"
 
 type PublicSkillRow = {
   skill_id: number
@@ -87,6 +87,10 @@ export default function PublicUserProfilePage() {
         <CardContent className="p-6">
           <div className="flex items-start gap-4">
             <Avatar className="size-16">
+              <AvatarImage
+                src={publicUrl(user.avatar_url) ?? undefined}
+                alt={user.full_name?.trim() || user.username}
+              />
               <AvatarFallback className="bg-primary/10 text-lg font-semibold text-primary">
                 {initialsFromName(user.full_name, user.username)}
               </AvatarFallback>
@@ -106,7 +110,11 @@ export default function PublicUserProfilePage() {
             <p className="text-sm font-medium text-foreground">Навыки:</p>
             <div className="mt-2 flex flex-wrap gap-2">
               {(user.skills || []).map((s) => (
-                <div key={`${s.skill_id}-${s.type}`} className="rounded-lg border border-border px-3 py-2">
+                <Link
+                  key={`${s.skill_id}-${s.type}`}
+                  href={`/skills/${offerSlug(user.id, s.skill_id)}`}
+                  className="rounded-lg border border-border px-3 py-2 transition-colors hover:border-primary/40 hover:bg-muted/40"
+                >
                   <p className="text-sm font-medium">{s.skill_name}</p>
                   <div className="mt-1 flex items-center gap-2">
                     <Badge variant="secondary" className="text-[11px]">
@@ -123,14 +131,10 @@ export default function PublicUserProfilePage() {
                       {s.type === "teach" ? "Обучает" : "Изучает"}
                     </Badge>
                   </div>
-                </div>
+                </Link>
               ))}
             </div>
           </div>
-
-          <Button className="mt-6" asChild>
-            <Link href={`/chat?with=${user.id}`}>Написать сообщение</Link>
-          </Button>
         </CardContent>
       </Card>
     </div>

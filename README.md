@@ -4,9 +4,8 @@
 
 ## Что сейчас в проекте
 
-- `frontend` — Next.js (`web/react`), основной пользовательский интерфейс.
-- `app` — PHP API (`public/index.php`, `src/api/*`).
-- `web` — legacy PHP модуль и админка (`/admin`).
+- `frontend` — Next.js (исходники в `web/react`, сборка Docker с контекстом `./web`).
+- `app` — PHP API (`public/index.php`, `src/api/*`) и раздача `web/*` (в т.ч. `/admin`).
 - `proxy` — Apache reverse proxy, единая точка входа на `http://localhost:8080`.
 - `mysql` — MySQL 8.0 с инициализацией из `db/init.sql`.
 
@@ -67,7 +66,7 @@ make down-dev
 При необходимости можно создать `.env` в корне проекта:
 
 ```env
-# DB (app/web)
+# DB (app)
 DB_HOST=mysql
 DB_NAME=skills_exchange
 DB_USER=skills_user
@@ -89,16 +88,14 @@ APP_URL=http://localhost:8080
 ## Архитектура роутинга
 
 - `proxy` направляет:
-  - `/api/*` и `/uploads/*` -> `app`
-  - `/admin/*` -> `web`
+  - `/api/*`, `/uploads/*` и `/admin/*` -> `app`
   - всё остальное -> `frontend`
 - Next.js также имеет rewrites `/api/*` и `/uploads/*` на backend (для прямого запуска frontend).
 
 ## Docker-сервисы
 
 - `proxy` (`skills-exchange-proxy`) — порт `8080:80`
-- `app` (`skills-exchange-app`) — PHP API
-- `web` (`skills-exchange-web`) — legacy web/admin
+- `app` (`skills-exchange-app`) — PHP API и статика/админка из `web/`
 - `frontend` (`bartery_frontend`) — Next.js (`3000:3000`)
 - `mysql` (`skills-exchange-mysql`) — `3306:3306`
 

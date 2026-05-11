@@ -6,9 +6,9 @@ import { ArrowLeft, MessageCircle, Star } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Card, CardContent } from "@/components/ui/card"
-import { Avatar, AvatarFallback } from "@/components/ui/avatar"
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Separator } from "@/components/ui/separator"
-import { apiFetch } from "@/lib/api-client"
+import { apiFetch, publicUrl } from "@/lib/api-client"
 import { teachOfferToSkill } from "@/lib/mappers"
 import type { Skill } from "@/lib/types"
 import type { TeachOfferRow } from "@/lib/types"
@@ -255,6 +255,7 @@ export default function SkillDetailClient({
             <CardContent className="space-y-0 p-6 md:p-8 lg:p-6">
               <div className="flex gap-4">
                 <Avatar className="size-14 shrink-0 ring-2 ring-background">
+                  <AvatarImage src={publicUrl(skill.user.avatarUrl) ?? undefined} alt={skill.user.name} />
                   <AvatarFallback className="rounded-full bg-primary/15 text-base font-semibold text-primary">
                     {skill.user.avatar}
                   </AvatarFallback>

@@ -54,7 +54,11 @@ export function getBackendOrigin(): string {
 export function publicUrl(path: string | null | undefined): string | null {
   if (!path) return null
   if (path.startsWith("http")) return path
-  return `${getBackendOrigin()}${path.startsWith("/") ? "" : "/"}${path}`
+  // Relative server paths (e.g. /uploads/...) are proxied by Next rewrites
+  // and by the Apache proxy. Returning them as-is keeps SSR/CSR markup in sync
+  // and avoids leaking internal Docker hostnames into the rendered HTML.
+  if (path.startsWith("/")) return path
+  return `${getBackendOrigin()}/${path}`
 }
 
 /**
