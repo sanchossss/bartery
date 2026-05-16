@@ -52,8 +52,14 @@ if (!$id && $method === 'POST') {
         jsonResponse(['error' => 'Callee not found'], 404);
     }
 
-    // Generate room name
-    $roomName = 'BarteryCall_' . $user['id'] . '_' . $calleeId . '_' . date('YmdHis');
+    // Имя комнаты: только [a-z0-9-] — так Jitsi и публичные инстансы стабильнее принимают комнату.
+    $roomName = strtolower('bartery-' . $user['id'] . '-' . $calleeId . '-' . gmdate('YmdHis') . '-' . bin2hex(random_bytes(3)));
+    $roomName = preg_replace('/[^a-z0-9-]/', '-', $roomName);
+    $roomName = preg_replace('/-+/', '-', $roomName);
+    $roomName = trim($roomName, '-');
+    if (strlen($roomName) > 200) {
+        $roomName = substr($roomName, 0, 200);
+    }
 
     // Create call record
     $stmt = $db->prepare('

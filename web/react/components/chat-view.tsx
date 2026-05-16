@@ -51,6 +51,9 @@ type VideoCallRow = {
 
 const CALL_SUMMARY_PREFIX = "__CALL_SUMMARY__:"
 
+/** Публичный Jitsi (можно переопределить: NEXT_PUBLIC_JITSI_DOMAIN в .env при сборке frontend). */
+const JITSI_DOMAIN = (process.env.NEXT_PUBLIC_JITSI_DOMAIN || "calls.disroot.org").replace(/^https?:\/\//, "")
+
 type CallSummaryPayload = {
   callId: number
   status: "completed" | "cancelled"
@@ -629,17 +632,22 @@ export default function ChatView() {
         </div>
       </div>
 
-      <Dialog open={isCallOpen} onOpenChange={(open) => void handleCallDialogChange(open)}>
-        <DialogContent className="max-w-6xl p-0 sm:max-w-6xl" showCloseButton>
+      <Dialog modal={false} open={isCallOpen} onOpenChange={(open) => void handleCallDialogChange(open)}>
+        <DialogContent
+          className="max-w-6xl p-0 sm:max-w-6xl"
+          showCloseButton
+          onInteractOutside={(e) => e.preventDefault()}
+          onPointerDownOutside={(e) => e.preventDefault()}
+        >
           <DialogHeader className="border-b px-4 py-3">
             <DialogTitle className="text-base">
               Видеозвонок с {activeChat.participant.name}
             </DialogTitle>
           </DialogHeader>
-          <div className="h-[75dvh]">
+          <div className="h-[75dvh] min-h-[320px]">
             {activeCall ? (
               <JitsiMeeting
-                domain="calls.disroot.org"
+                domain={JITSI_DOMAIN}
                 roomName={activeCall.room_name}
                 userInfo={{
                   displayName: auth?.user?.full_name || auth?.user?.username || "Bartery User",
@@ -648,6 +656,8 @@ export default function ChatView() {
                   prejoinPageEnabled: false,
                   startWithAudioMuted: false,
                   startWithVideoMuted: false,
+                  disableDeepLinking: true,
+                  disableLocalStorage: true,
                 }}
                 interfaceConfigOverwrite={{
                   MOBILE_APP_PROMO: false,
@@ -665,6 +675,10 @@ export default function ChatView() {
                   iframeRef.style.width = "100%"
                   iframeRef.style.height = "100%"
                   iframeRef.style.border = "0"
+                  iframeRef.setAttribute(
+                    "allow",
+                    "camera; microphone; fullscreen; display-capture; autoplay; clipboard-write"
+                  )
                 }}
               />
             ) : (

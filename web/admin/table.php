@@ -1,8 +1,19 @@
 <?php
 /**
  * Просмотр и редактирование таблицы. Без авторизации (временно).
+ * Открывать через /legacy-admin/ на прокси (см. index.php в этой папке).
  */
 require_once __DIR__ . '/../../src/Database.php';
+
+$pubBaseFromProxy = trim((string)($_SERVER['HTTP_X_BARTERY_PUBLIC_BASE'] ?? ''));
+if ($pubBaseFromProxy === '/legacy-admin') {
+    $pubBase = '/legacy-admin';
+} else {
+    $pubBase = rtrim(str_replace('\\', '/', dirname($_SERVER['SCRIPT_NAME'] ?? '/admin/table.php')), '/');
+    if ($pubBase === '' || $pubBase === '.') {
+        $pubBase = '/admin';
+    }
+}
 
 $db = Database::get();
 $table = isset($_GET['name']) ? preg_replace('/[^a-z_0-9]/', '', $_GET['name']) : '';
@@ -72,6 +83,7 @@ $rows = $db->query("SELECT * FROM `$table` $order")->fetchAll(PDO::FETCH_ASSOC);
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
+    <base href="<?= htmlspecialchars($pubBase) ?>/">
     <title>Таблица <?= htmlspecialchars($table) ?></title>
     <link rel="stylesheet" href="../css/style.css">
     <style>

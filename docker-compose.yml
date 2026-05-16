@@ -1,5 +1,7 @@
 services:
   proxy:
+    # После изменений docker/proxy.conf обязательно: docker compose build proxy && docker compose up -d proxy
+    # (docker compose up --build frontend не пересобирает образ прокси — /admin останется на старом маршруте.)
     build:
       context: .
       dockerfile: docker/proxy.Dockerfile
@@ -13,7 +15,7 @@ services:
   app:
     build: .
     container_name: skills-exchange-app
-    ports:
+    expose:
       - "80"
     volumes:
       - .:/var/www/html
@@ -27,6 +29,9 @@ services:
       DB_NAME: ${skills_exchange}
       DB_USER: ${skills_user}
       DB_PASS: ${skills_pass}
+      APP_URL: ${APP_URL:-http://localhost:8080}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-bartery_admin_change_me}
+      ADMIN_JWT_SECRET: ${ADMIN_JWT_SECRET:-bartery-dev-admin-jwt-secret-minimum-32chars-ok}
 
   frontend:
     build:
@@ -35,6 +40,8 @@ services:
       args:
         API_BACKEND_URL: http://app:80
         NEXT_PUBLIC_API_ORIGIN: http://localhost:8080
+        NEXT_PUBLIC_ADMIN_HOST: admin.localhost
+        NEXT_PUBLIC_JITSI_DOMAIN: ${NEXT_PUBLIC_JITSI_DOMAIN:-calls.disroot.org}
     container_name: bartery_frontend
     ports:
       - "3000:3000"
@@ -44,6 +51,8 @@ services:
       NODE_ENV: production
       API_BACKEND_URL: http://app:80
       NEXT_PUBLIC_API_ORIGIN: http://localhost:8080
+      NEXT_PUBLIC_ADMIN_HOST: admin.localhost
+      NEXT_PUBLIC_JITSI_DOMAIN: ${NEXT_PUBLIC_JITSI_DOMAIN:-calls.disroot.org}
 
 
   mysql:

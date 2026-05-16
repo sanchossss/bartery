@@ -197,12 +197,75 @@ $path = preg_replace('#\?.*$#', '', $path);
 
 $method = $_SERVER['REQUEST_METHOD'];
 $segments = $path ? explode('/', $path) : [];
+$firstSeg = strtolower((string)($segments[0] ?? ''));
 
 // Не API — отдаём веб-модуль или статику (на случай если nginx отдаёт всё в index.php)
-if (($segments[0] ?? '') !== 'api') {
+if ($firstSeg !== 'api') {
     $webDir = realpath(__DIR__ . '/../web') ?: (__DIR__ . '/../web');
     $requestPath = $path === '' ? 'index.html' : $path;
     $requestPath = str_replace(['../', '..\\'], '', $requestPath);
+
+    // Браузерные пути Next-админки (/admin/*): при прямом заходе на контейнер app PHP
+    // раньше отдавал JSON-заглушку. Редирект на публичный URL прокси (APP_URL).
+    // Старая PHP-админка через /legacy-admin: прокси ставит X-Bartery-Public-Base — не редиректим.
+    if ($firstSeg === 'admin') {
+        $legacyBase = trim((string)($_SERVER['HTTP_X_BARTERY_PUBLIC_BASE'] ?? ''));
+        if ($legacyBase !== '/legacy-admin' && in_array($_SERVER['REQUEST_METHOD'] ?? 'GET', ['GET', 'HEAD'], true)) {
+            $cfg = require __DIR__ . '/../src/config.php';
+            $cfgUrl = rtrim((string)($cfg['app']['url'] ?? 'http://localhost:8080'), '/');
+            $pub = parse_url($cfgUrl) ?: [];
+            $pubScheme = strtolower((string)($pub['scheme'] ?? 'http'));
+            $pubHost = strtolower((string)($pub['host'] ?? 'localhost'));
+            $pubPort = isset($pub['port']) ? (int)$pub['port'] : ($pubScheme === 'https' ? 443 : 80);
+            if (in_array($pubHost, ['127.0.0.1', '::1'], true)) {
+                $pubHost = 'localhost';
+            }
+
+            $xfProto = strtolower((string)($_SERVER['HTTP_X_FORWARDED_PROTO'] ?? ''));
+            $reqHttps = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') || $xfProto === 'https';
+            $reqScheme = $reqHttps ? 'https' : 'http';
+            $hh = strtolower((string)($_SERVER['HTTP_HOST'] ?? ''));
+            $reqHost = $hh;
+            $reqPort = $reqScheme === 'https' ? 443 : 80;
+            if (str_contains($hh, ':')) {
+                $hp = explode(':', $hh, 2);
+                $reqHost = $hp[0];
+                $reqPort = (int)$hp[1];
+            }
+            if (in_array($reqHost, ['127.0.0.1', '::1'], true)) {
+                $reqHost = 'localhost';
+            }
+
+            // Редирект только если запрос пришёл не на тот же публичный origin (например, прямой заход на порт app).
+            // Иначе 302 на тот же URL → ERR_TOO_MANY_REDIRECTS в браузере.
+            $samePublicOrigin = ($reqScheme === $pubScheme && $reqHost === $pubHost && $reqPort === $pubPort);
+            if ($samePublicOrigin) {
+                http_response_code(503);
+                header('Content-Type: text/html; charset=utf-8');
+                echo '<!DOCTYPE html><html lang="ru"><head><meta charset="utf-8"><title>Админка</title></head><body style="font-family:system-ui;padding:2rem">';
+                echo '<h1>Сервис админки недоступен с PHP</h1>';
+                echo '<p>Путь <code>/admin</code> должен отдавать контейнер <strong>frontend</strong> (Next.js) через reverse proxy, а не PHP.</p>';
+                echo '<p>Проверьте: <code>docker compose ps</code> — контейнер <code>bartery_frontend</code> в состоянии Up; образ прокси с актуальным <code>docker/proxy.conf</code>: <code>docker compose build proxy && docker compose up -d proxy</code> (команда <code>docker compose up --build frontend</code> прокси не пересобирает).</p>';
+                echo '</body></html>';
+                exit;
+            }
+
+            $base = $pubScheme . '://' . $pubHost;
+            if (($pubScheme === 'http' && $pubPort !== 80) || ($pubScheme === 'https' && $pubPort !== 443)) {
+                $base .= ':' . $pubPort;
+            }
+            $uri = $_SERVER['REQUEST_URI'] ?? '/';
+            $pathOnly = parse_url($uri, PHP_URL_PATH) ?: '/';
+            $qs = parse_url($uri, PHP_URL_QUERY);
+            $loc = $base . $pathOnly;
+            if ($qs !== null && $qs !== false && $qs !== '') {
+                $loc .= '?' . $qs;
+            }
+            header('Location: ' . $loc, true, 302);
+            exit;
+        }
+    }
+
     // uploads/ — из корня проекта; для несуществующих файлов отдаём чистый 404,
     // чтобы фронт не получал HTML/JSON-фолбэк с Content-Type, отличным от image/*.
     if (strpos($requestPath, 'uploads/') === 0) {
@@ -316,6 +379,12 @@ if ($resource === 'teach-offers') {
 // Public leaderboard by points
 if ($resource === 'leaderboard') {
     require __DIR__ . '/../src/api/leaderboard.php';
+    exit;
+}
+
+// Admin panel API (password + separate JWT, not user api_token)
+if ($resource === 'admin') {
+    require __DIR__ . '/../src/api/admin.php';
     exit;
 }
 

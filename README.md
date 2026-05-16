@@ -5,7 +5,7 @@
 ## Что сейчас в проекте
 
 - `frontend` — Next.js (исходники в `web/react`, сборка Docker с контекстом `./web`).
-- `app` — PHP API (`public/index.php`, `src/api/*`) и раздача `web/*` (в т.ч. `/admin`).
+- `app` — PHP API (`public/index.php`, `src/api/*`) и раздача статики из `web/` (кроме маршрута `/admin`, который отдаёт Next).
 - `proxy` — Apache reverse proxy, единая точка входа на `http://localhost:8080`.
 - `mysql` — MySQL 8.0 с инициализацией из `db/init.sql`.
 
@@ -43,8 +43,11 @@ make up-dev
 
 ### Открыть в браузере
 
-- Приложение (React): `http://localhost:8080`
-- Админка: `http://localhost:8080/admin`
+- Приложение (React): `http://localhost:8080` или `http://127.0.0.1:8080`
+- **Админ-панель (Next, пароль `ADMIN_PASSWORD`, по умолчанию `bartery_admin_change_me`):**
+  - `http://localhost:8080/admin`
+  - **Отдельный хост:** `http://admin.localhost:8080/` (корень перенаправляется на `/admin` внутри Next). Добавьте в `/etc/hosts` строку: `127.0.0.1 admin.localhost`
+- **Старая PHP-админка БД** (простой просмотр таблиц): `http://localhost:8080/legacy-admin/` (стили и ссылки исправлены под этот префикс)
 - Прямой frontend: `http://localhost:3000`
 - API пример: `http://localhost:8080/api/categories`
 
@@ -80,22 +83,29 @@ MYSQL_PASSWORD=skills_pass
 
 # App URL
 APP_URL=http://localhost:8080
+
+# Админ-панель (Next /admin + API /api/admin/*)
+# В docker-compose заданы defaults; для продакшена обязательно смените оба значения.
+ADMIN_PASSWORD=ваш_сложный_пароль
+ADMIN_JWT_SECRET=случайная_строка_не_короче_32_символов
 ```
 
 Важно: в текущем `docker-compose.yml` используются плейсхолдеры вида `${skills_exchange}`, `${skills_user}`, `${skills_pass}`, `${rootpass}`.
-Если не хотите полагаться на defaults, задайте эти значения в `.env`.
+Если не хотите полагаться на defaults, задайте эти значения в `.env` (шаблон — `.env.example`, скопируйте: `cp .env.example .env`).
 
 ## Архитектура роутинга
 
 - `proxy` направляет:
-  - `/api/*`, `/uploads/*` и `/admin/*` -> `app`
-  - всё остальное -> `frontend`
+  - `/api/*` и `/uploads/*` -> `app`
+  - `/legacy-admin/*` -> PHP-админка в `web/admin/` (на бэкенде путь `/admin/...`)
+  - `/admin` и остальной UI -> `frontend` (Next)
+  - отдельный виртуальный хост **`admin.localhost`** — тот же прокси, удобно открывать админку без префикса в URL (см. `web/react/middleware.ts`)
 - Next.js также имеет rewrites `/api/*` и `/uploads/*` на backend (для прямого запуска frontend).
 
 ## Docker-сервисы
 
 - `proxy` (`skills-exchange-proxy`) — порт `8080:80`
-- `app` (`skills-exchange-app`) — PHP API и статика/админка из `web/`
+- `app` (`skills-exchange-app`) — PHP API и статика из `web/`
 - `frontend` (`bartery_frontend`) — Next.js (`3000:3000`)
 - `mysql` (`skills-exchange-mysql`) — `3306:3306`
 

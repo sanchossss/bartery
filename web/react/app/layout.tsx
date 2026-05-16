@@ -1,6 +1,6 @@
 import type { Metadata, Viewport } from "next"
 import { Inter, JetBrains_Mono } from "next/font/google"
-import { Header } from "@/components/header"
+import { AppChrome } from "@/components/app-chrome"
 import "./globals.css"
 
 const inter = Inter({ subsets: ["latin", "cyrillic"], variable: "--font-inter" })
@@ -44,10 +44,7 @@ export default function RootLayout({
   return (
     <html lang="ru">
       <body className={`${inter.variable} ${jetbrainsMono.variable} font-sans antialiased`}>
-        <Header />
-        <main className="min-h-dvh max-[600px]:pb-[calc(3.5rem+env(safe-area-inset-bottom,0px))] min-[601px]:min-h-[calc(100vh-4rem)]">
-          {children}
-        </main>
+        <AppChrome>{children}</AppChrome>
       </body>
     </html>
   )

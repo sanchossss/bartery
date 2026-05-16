@@ -4,6 +4,7 @@ FROM httpd:2.4
 RUN sed -i '/#LoadModule proxy_module/s/^#//' /usr/local/apache2/conf/httpd.conf
 RUN sed -i '/#LoadModule proxy_http_module/s/^#//' /usr/local/apache2/conf/httpd.conf
 RUN sed -i '/#LoadModule proxy_wstunnel_module/s/^#//' /usr/local/apache2/conf/httpd.conf
+RUN sed -i '/#LoadModule headers_module/s/^#//' /usr/local/apache2/conf/httpd.conf
 
 # Подключаем наш VirtualHost
 COPY docker/proxy.conf /usr/local/apache2/conf/extra/proxy.conf

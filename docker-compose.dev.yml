@@ -13,4 +13,6 @@ services:
       CHOKIDAR_USEPOLLING: "true"
       API_BACKEND_URL: http://app:80
       NEXT_PUBLIC_API_ORIGIN: http://localhost:8080
+      NEXT_PUBLIC_ADMIN_HOST: admin.localhost
+      NEXT_PUBLIC_JITSI_DOMAIN: ${NEXT_PUBLIC_JITSI_DOMAIN:-calls.disroot.org}
     command: ["npm", "run", "dev", "--", "-H", "0.0.0.0", "-p", "3000"]
